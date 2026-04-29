@@ -220,7 +220,7 @@ function Dark.CreateLib()
 
 	-- AddTab: full-width TextButton with an optional icon on the left
 	local Lib = {}
-	function Lib.AddTab(image, labelText)
+	function Lib:AddTab(image, labelText)
 		local indexnumber = tostring(#TabsScroll:GetChildren() - 1)
 		labelText = labelText or "Tab_" .. indexnumber
 		
