@@ -1,5 +1,7 @@
-local gui = game.CoreGui:FindFirstChild("DARK_EXECUTOR")
-if gui then gui:Destroy() end
+-- Singleton cache: re-executing returns the existing Dark/Lib
+if DARK_EXECUTOR then
+	return DARK_EXECUTOR
+end
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -9,14 +11,17 @@ local TWEEN_FAST   = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirec
 local TWEEN_MEDIUM = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- Tab button colours
-local COL_TAB_IDLE     = Color3.fromRGB(220, 220, 225)   -- white-ish gray (idle text)
-local COL_TAB_SEL      = Color3.fromRGB(255, 255, 255)   -- pure white  (selected text)
-local COL_TAB_BG_SEL   = Color3.fromRGB(60,  60,  65)    -- subtle gray bg when selected
-local TRAN_TAB_IDLE    = 1                                -- fully transparent bg when idle
-local TRAN_TAB_SEL     = 0.35                             -- semi-visible bg when selected
+local COL_TAB_IDLE     = Color3.fromRGB(220, 220, 225)
+local COL_TAB_SEL      = Color3.fromRGB(255, 255, 255)
+local COL_TAB_BG_SEL   = Color3.fromRGB(85, 170, 255) 
+local TRAN_TAB_IDLE    = 1
+local TRAN_TAB_SEL     = 0.35
 
 local Dark = {}
 function Dark.CreateLib()
+	if DARK_EXECUTOR_LIB then
+		return DARK_EXECUTOR_LIB
+	end
 	local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
 	local Frame = Instance.new("Frame", ScreenGui)
 	local MoreExecutor = Instance.new("Frame", ScreenGui)
@@ -86,7 +91,7 @@ function Dark.CreateLib()
 	Frame.ClipsDescendants = false
 
 	local frameCorner = Instance.new("UICorner", Frame)
-	frameCorner.CornerRadius = UDim.new(0, 20)
+	frameCorner.CornerRadius = UDim.new(0, 8)
 
 	-- ── Drag handle ──────────────────────────────────────────────────────────
 	local DragLine = Instance.new("Frame", Frame)
@@ -144,7 +149,7 @@ function Dark.CreateLib()
 	Scroll.ClipsDescendants = true
 
 	local scrollCorner = Instance.new("UICorner", Scroll)
-	scrollCorner.CornerRadius = UDim.new(0, 14)
+	scrollCorner.CornerRadius = UDim.new(0, 12)
 
 	TabsScroll.Name = "TabsBar"
 	TabsScroll.AnchorPoint = Vector2.new(0, 0)
@@ -162,7 +167,7 @@ function Dark.CreateLib()
 	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local UIPadding = Instance.new("UIPadding", TabsScroll)
-	UIPadding.PaddingTop = UDim.new(0, 6)
+	UIPadding.PaddingTop = UDim.new(0, 4)
 	UIPadding.PaddingLeft = UDim.new(0, 4)
 	UIPadding.PaddingRight = UDim.new(0, 4)
 
@@ -186,7 +191,7 @@ function Dark.CreateLib()
 	end)
 
 	local closeCorner = Instance.new("UICorner", TabClose)
-	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.CornerRadius = UDim.new(0, 10)
 
 	local function MakeBarLine(parent, yOffset)
 		local l = Instance.new("Frame", parent)
@@ -242,7 +247,7 @@ function Dark.CreateLib()
 	local function MakeLabel(parent, name, info)
 		local lbl = Instance.new("TextLabel", parent)
 		lbl.Size = UDim2.new(0.55, 0, 0, 16)
-		lbl.Position = UDim2.new(0, 10, 0, 6)
+		lbl.Position = UDim2.new(0, 10, 0, 4)
 		lbl.BackgroundTransparency = 1
 		lbl.Text = name or ""
 		lbl.TextColor3 = Color3.fromRGB(230, 230, 230)
@@ -278,7 +283,7 @@ function Dark.CreateLib()
 		  mode      – nil / "scroll"  → default ScrollingFrame content area
 		              "full"          → raw Frame (you control layout entirely)
 	--]]
-	function Lib:AddTab(image, labelText, mode)
+	function Lib:AddTab(labelText, image, mode)
 		local indexnumber = tostring(#TabsScroll:GetChildren() - 1)
 		labelText = labelText or ("Tab_" .. indexnumber)
 
@@ -294,7 +299,7 @@ function Dark.CreateLib()
 		TabButton.TextColor3 = COL_TAB_IDLE
 		TabButton.TextSize = 12
 		TabButton.Font = Enum.Font.GothamMedium
-		TabButton.TextXAlignment = Enum.TextXAlignment.Left
+		TabButton.TextXAlignment = image and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
 		TabButton.TextTruncate = Enum.TextTruncate.AtEnd
 		TabButton.AutoButtonColor = false
 		-- No TextStroke, no UIStroke – just plain text
@@ -347,7 +352,7 @@ function Dark.CreateLib()
 			sf.Size = UDim2.new(1, 0, 1, 0)
 			sf.Position = UDim2.new(0, 0, 0, 0)
 			sf.BackgroundTransparency = 1
-			sf.ScrollBarThickness = 3
+			sf.ScrollBarThickness = 0
 			sf.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
 			sf.ScrollingDirection = Enum.ScrollingDirection.Y
 			sf.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -404,7 +409,7 @@ function Dark.CreateLib()
 		--   info     – small subtitle text (can be nil)
 		--   callback – called on click
 		function Tab:AddButton(name, info, callback)
-			local row = MakeRow(ContentParent, info and 50 or 38)
+			local row = MakeRow(ContentParent, 38)
 			row.LayoutOrder = nextOrder()
 			row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
 			row.BackgroundTransparency = 0.3
@@ -416,32 +421,33 @@ function Dark.CreateLib()
 
 			local btn = Instance.new("TextButton", row)
 			btn.Name = "ActionBtn"
-			btn.Size = UDim2.new(0, 70, 0, 24)
-			btn.AnchorPoint = Vector2.new(1, 0.5)
-			btn.Position = UDim2.new(1, -10, 0.5, 0)
-			btn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-			btn.BackgroundTransparency = 0
-			btn.Text = name or "Run"
-			btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-			btn.TextSize = 12
-			btn.Font = Enum.Font.GothamMedium
+			btn.Size = UDim2.new(1, 0, 1, 0)
+			btn.BackgroundTransparency = 1
+			btn.Text = ""
 			btn.AutoButtonColor = false
-
-			local btnC = Instance.new("UICorner", btn)
-			btnC.CornerRadius = UDim.new(0, 8)
+			
+			local icon = Instance.new("ImageLabel", row)
+			icon.Name = "TapIcon"
+			icon.Size = UDim2.new(0, 20, 0, 20)
+			icon.Position = UDim2.new(1, -8, 0.5, 0)
+			icon.AnchorPoint = Vector2.new(1, 0.5)
+			icon.BackgroundTransparency = 1
+			icon.Image = "rbxassetid://3926305904"
+			icon.ImageRectSize = Vector2.new(36, 36)
+			icon.ImageRectOffset = Vector2.new(84, 204)
 
 			-- Hover / press feedback
 			btn.MouseEnter:Connect(function()
-				TweenService:Create(btn, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(80, 80, 88)}):Play()
+				TweenService:Create(row, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(80, 80, 88)}):Play()
 			end)
 			btn.MouseLeave:Connect(function()
-				TweenService:Create(btn, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(60, 60, 65)}):Play()
+				TweenService:Create(row, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(25, 25, 28)}):Play()
 			end)
 			btn.MouseButton1Down:Connect(function()
-				TweenService:Create(btn, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
+				TweenService:Create(row, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
 			end)
 			btn.MouseButton1Up:Connect(function()
-				TweenService:Create(btn, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(80, 80, 88)}):Play()
+				TweenService:Create(row, TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(25, 25, 28)}):Play()
 			end)
 			btn.MouseButton1Click:Connect(function()
 				if callback then callback() end
@@ -460,7 +466,7 @@ function Dark.CreateLib()
 		--   info     – subtitle (can be nil)
 		--   callback – called with (bool) on change
 		function Tab:AddToggle(name, info, callback)
-			local row = MakeRow(ContentParent, info and 50 or 38)
+			local row = MakeRow(ContentParent, 38)
 			row.LayoutOrder = nextOrder()
 			row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
 			row.BackgroundTransparency = 0.3
@@ -646,7 +652,7 @@ function Dark.CreateLib()
 		--   callback – called with (selectedString) on change
 		function Tab:AddDropdown(name, info, options, callback)
 			options = options or {}
-			local closedH = info and 50 or 38
+			local closedH = 38
 			local openedH = closedH + math.min(#options, 5) * 28 + 4
 
 			local row = MakeRow(ContentParent, closedH)
@@ -664,7 +670,7 @@ function Dark.CreateLib()
 			local selLabel = Instance.new("TextLabel", row)
 			selLabel.Size = UDim2.new(0, 100, 0, 22)
 			selLabel.AnchorPoint = Vector2.new(1, 0.5)
-			selLabel.Position = UDim2.new(1, -30, 0.5, 0)
+			selLabel.Position = UDim2.new(1, -30, 0, 20)
 			selLabel.BackgroundTransparency = 1
 			selLabel.Text = options[1] or "None"
 			selLabel.TextColor3 = Color3.fromRGB(200, 200, 205)
@@ -677,7 +683,7 @@ function Dark.CreateLib()
 			local arrow = Instance.new("TextLabel", row)
 			arrow.Size = UDim2.new(0, 16, 0, 16)
 			arrow.AnchorPoint = Vector2.new(1, 0.5)
-			arrow.Position = UDim2.new(1, -10, 0.5, 0)
+			arrow.Position = UDim2.new(1, -10, 0, 20)
 			arrow.BackgroundTransparency = 1
 			arrow.Text = "▾"
 			arrow.TextColor3 = Color3.fromRGB(160, 160, 165)
@@ -798,8 +804,7 @@ function Dark.CreateLib()
 		--   placeholder – placeholder string (can be nil)
 		--   callback    – called with (text) when Enter or focus lost
 		function Tab:AddTextBox(name, info, placeholder, callback)
-			local rowH = info and 62 or 52
-			local row = MakeRow(ContentParent, rowH)
+			local row = MakeRow(ContentParent, 38)
 			row.LayoutOrder = nextOrder()
 			row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
 			row.BackgroundTransparency = 0.3
@@ -812,8 +817,8 @@ function Dark.CreateLib()
 			local box = Instance.new("TextBox", row)
 			box.Name = "InputBox"
 			box.Size = UDim2.new(0.42, 0, 0, 26)
-			box.AnchorPoint = Vector2.new(1, 1)
-			box.Position = UDim2.new(1, -10, 1, -8)
+			box.AnchorPoint = Vector2.new(1, 0.5)
+			box.Position = UDim2.new(1, -6, 0.5, 0)
 			box.BackgroundColor3 = Color3.fromRGB(40, 40, 44)
 			box.BackgroundTransparency = 0
 			box.PlaceholderText = placeholder or "Type here…"
@@ -821,15 +826,12 @@ function Dark.CreateLib()
 			box.Text = ""
 			box.TextColor3 = Color3.fromRGB(220, 220, 225)
 			box.TextSize = 12
+			box.TextWrapped = true
 			box.Font = Enum.Font.Gotham
 			box.ClearTextOnFocus = false
 
 			local boxCorner = Instance.new("UICorner", box)
 			boxCorner.CornerRadius = UDim.new(0, 7)
-
-			local boxPad = Instance.new("UIPadding", box)
-			boxPad.PaddingLeft = UDim.new(0, 6)
-			boxPad.PaddingRight = UDim.new(0, 6)
 
 			-- Focus outline
 			box.Focused:Connect(function()
@@ -849,19 +851,19 @@ function Dark.CreateLib()
 		-- ── AddTextLabel ──────────────────────────────────────────────────
 		--   text  – string to display
 		--   size  – font size (default 13)
-		--   color – Color3 (default off-white)
+		--   color – Color3 (default white)
 		function Tab:AddTextLabel(text, size, color)
-			local row = MakeRow(ContentParent, 32)
+			local row = MakeRow(ContentParent, 14)
 			row.LayoutOrder = nextOrder()
 			row.BackgroundTransparency = 1
 
 			local lbl = Instance.new("TextLabel", row)
 			lbl.Name = "TextLabel"
 			lbl.Size = UDim2.new(1, -20, 1, 0)
-			lbl.Position = UDim2.new(0, 10, 0, 0)
+			lbl.Position = UDim2.new(0, 5, 0, 0)
 			lbl.BackgroundTransparency = 1
 			lbl.Text = text or ""
-			lbl.TextColor3 = color or Color3.fromRGB(200, 200, 205)
+			lbl.TextColor3 = color or Color3.fromRGB(230, 230, 230)
 			lbl.TextSize = size or 13
 			lbl.Font = Enum.Font.Gotham
 			lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -876,7 +878,33 @@ function Dark.CreateLib()
 		return Tab
 	end
 
+	getgenv().DARK_EXECUTOR_LIB = Lib
 	return Lib
 end
 
+local Lib = Dark.CreateLib()
+local tab = Lib:AddTab("Tab")
+tab:AddTextLabel("name")
+
+tab:AddButton("name", "info", function()
+	print("clicked")
+end)
+
+tab:AddToggle("name", "info", function(state)
+	print(state)
+end)
+
+tab:AddTextBox("name", "info", "input here", function(input)
+	print(input)
+end)
+
+tab:AddSlider("name", "info", 0, 1000, 50, function(value)
+	print(value)
+end)
+
+tab:AddDropdown("name", "info", {"hello", "world"}, function(select)
+	print(select)
+end)
+
+getgenv().DARK_EXECUTOR = Dark
 return Dark
