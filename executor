@@ -166,7 +166,7 @@ LineNumbers.TextSize = 14
 LineNumbers.TextWrapped = false
 LineNumbers.Text = "1"
 
-local TextPadding = Instance.new("UIPadding", TabsScroll)
+local TextPadding = Instance.new("UIPadding", LineNumbers)
 TextPadding.PaddingRight = UDim.new(0, 2)
 
 local function UpdateLines()
@@ -332,10 +332,6 @@ local function SelectTab(index)
 
 	-- update button visual states
 	for i, t in ipairs(ScriptTabs) do
-		local stroke = t.button:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Enabled = (i == index)
-		end
 		t.button.BackgroundTransparency = (i == index) and 0.2 or 0.6
 	end
 
@@ -385,13 +381,6 @@ local function AddScriptTab(name, content)
 
 	local btnCorner = Instance.new("UICorner", btn)
 	btnCorner.CornerRadius = UDim.new(1, 0)
-
-	-- selection stroke (red, hidden until selected)
-	local stroke = Instance.new("UIStroke", btn)
-	stroke.Color = Color3.fromRGB(255, 60, 60)
-	stroke.Thickness = 2
-	stroke.Transparency = 0
-	stroke.Enabled = false
 
 	-- name label (left side, editable on double-click)
 	local nameLabel = Instance.new("TextLabel", btn)
