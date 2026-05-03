@@ -3,6 +3,18 @@ if DARK_EXECUTOR then
 	return DARK_EXECUTOR
 end
 
+-- ── Save Config ──--
+local SAVE_DIR = "DarkExecutor"
+if not isfolder(SAVE_DIR) then makefolder(SAVE_DIR) end
+
+function jsonencode(Table)
+	return game:GetService("HttpService"):JSONEncode(Table)
+end
+
+function jsondecode(TableString)
+	return game:GetService("HttpService"):JSONDecode(TableString)
+end
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -24,6 +36,7 @@ function Dark.CreateLib()
 	end
 	local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
 	local Frame = Instance.new("Frame", ScreenGui)
+	local Background = Instance.new("ImageLabel", Frame)
 	local MoreExecutor = Instance.new("Frame", ScreenGui)
 	local OpenButton = Instance.new("TextButton", MoreExecutor)
 	local Label = Instance.new("ImageLabel", OpenButton)
@@ -92,6 +105,15 @@ function Dark.CreateLib()
 
 	local frameCorner = Instance.new("UICorner", Frame)
 	frameCorner.CornerRadius = UDim.new(0, 8)
+	
+	Background.Name = "ImageBackground"
+	Background.Size = UDim2.new(1, 0, 1, 0)
+	Background.BackgroundTransparency = 1
+	Background.Image = ""
+	Background.ImageTransparency = 0.5
+	
+	local bgCorner = Instance.new("UICorner", Background)
+	bgCorner.CornerRadius = UDim.new(0, 8)
 
 	-- ── Drag handle ──────────────────────────────────────────────────────────
 	local DragLine = Instance.new("Frame", Frame)
@@ -299,7 +321,7 @@ function Dark.CreateLib()
 		TabButton.TextColor3 = COL_TAB_IDLE
 		TabButton.TextSize = 12
 		TabButton.Font = Enum.Font.GothamMedium
-		TabButton.TextXAlignment = image and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
+		TabButton.TextXAlignment = Enum.TextXAlignment.Left
 		TabButton.TextTruncate = Enum.TextTruncate.AtEnd
 		TabButton.AutoButtonColor = false
 		-- No TextStroke, no UIStroke – just plain text
@@ -310,6 +332,12 @@ function Dark.CreateLib()
 
 		local tabCorner = Instance.new("UICorner", TabButton)
 		tabCorner.CornerRadius = UDim.new(0, 10)
+		
+		local stroke = Instance.new("UIStroke", TabButton)
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		stroke.Color = Color3.fromRGB(255, 255, 255)
+		stroke.Thickness = 1
+		stroke.Transparency = 0.2
 
 		local Icon = Instance.new("ImageLabel", TabButton)
 		Icon.Name = "Icon"
@@ -877,7 +905,24 @@ function Dark.CreateLib()
 
 		return Tab
 	end
-
+	
+	function Lib:SetBackground(image, transparency)
+		pcall(writefile, SAVE_DIR .. "/bg.json", jsonencode({image, transparency}))
+		local image = image
+			and ("https://www.roblox.com/asset-thumbnail/image?assetId=" .. tostring(image) .. "&width=420&height=420&format=png")
+			or ""
+		local transparency = transparency or 0.5
+		
+		Background.Image = image
+		Background.ImageTransparency = transparency
+	end
+	
+	--=== Set Background Image from Save ===--
+	local success, content = pcall(readfile, SAVE_DIR .. "/bg.json")
+	if success then
+		Lib:SetBackground(unpack(jsondecode(content)))
+	end
+	
 	getgenv().DARK_EXECUTOR_LIB = Lib
 	return Lib
 end
