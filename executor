@@ -1,0 +1,568 @@
+local Dark = loadstring(game:HttpGet("https://raw.githubusercontent.com/RedZenXYZ/DARK-EXECUTOR/refs/heads/main/source"))()
+
+local Lib = Dark.CreateLib()
+local executor = Lib:AddTab("EXECUTOR", nil, "full")
+
+-- ── Save directory ────────────────────────────────────────────────────────────
+local SAVE_DIR = "DarkExecutor"
+if not isfolder(SAVE_DIR) then makefolder(SAVE_DIR) end
+
+local function TabPath(name)
+	return SAVE_DIR .. "/" .. name .. ".lua"
+end
+
+local function SaveTab(name, text)
+	pcall(writefile, TabPath(name), text)
+end
+
+local function LoadTab(name)
+	local ok, content = pcall(readfile, TabPath(name))
+	return ok and content or ""
+end
+
+local function DeleteTab(name)
+	pcall(delfile, TabPath(name))
+end
+
+local function RenameTabFile(oldName, newName)
+	local ok, content = pcall(readfile, TabPath(oldName))
+	if ok then
+		pcall(writefile, TabPath(newName), content)
+		pcall(delfile, TabPath(oldName))
+	end
+end
+
+-- ── Tab bar (script tabs row above the editor) ────────────────────────────────
+local TAB_H = 28  -- height of the tab bar
+
+local TabBar = Instance.new("Frame", executor.Frame)
+TabBar.Name = "TabBar"
+TabBar.AnchorPoint = Vector2.new(0, 0)
+TabBar.Position = UDim2.new(0, 10, 0, 4)
+TabBar.Size = UDim2.new(1, -50, 0, TAB_H)
+TabBar.BackgroundTransparency = 1
+TabBar.ClipsDescendants = true
+
+local TabBarScroll = Instance.new("ScrollingFrame", TabBar)
+TabBarScroll.Size = UDim2.new(1, -30, 1, 0)
+TabBarScroll.BackgroundTransparency = 1
+TabBarScroll.ScrollBarThickness = 0
+TabBarScroll.ScrollingDirection = "X"
+TabBarScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+TabBarScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+TabBarScroll.ElasticBehavior = Enum.ElasticBehavior.Never
+
+local TabBarLayout = Instance.new("UIListLayout", TabBarScroll)
+TabBarLayout.FillDirection = Enum.FillDirection.Horizontal
+TabBarLayout.Padding = UDim.new(0, 4)
+TabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabBarLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+-- "+" button to add a new script tab
+local AddTabBtn = Instance.new("TextButton", TabBar)
+AddTabBtn.AnchorPoint = Vector2.new(1, 0.5)
+AddTabBtn.Position = UDim2.new(1, 0, 0.5, 0)
+AddTabBtn.Size = UDim2.new(0, TAB_H, 0, TAB_H)
+AddTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+AddTabBtn.BackgroundTransparency = 0.3
+AddTabBtn.Text = "+"
+AddTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+AddTabBtn.TextSize = 16
+AddTabBtn.Font = Enum.Font.GothamBold
+AddTabBtn.BorderSizePixel = 0
+local addCorner = Instance.new("UICorner", AddTabBtn)
+addCorner.CornerRadius = UDim.new(1, 0)
+
+-- ── Editor area (below the tab bar) ──────────────────────────────────────────
+local EDITOR_TOP = TAB_H + 8
+
+-- LineNumbers lives in its own ScrollingFrame on the left, outside Source
+local LINE_W = 30  -- initial width, grows with content
+
+local LineNumFrame = Instance.new("Frame", executor.Frame)
+LineNumFrame.Name = "LineNumFrame"
+LineNumFrame.AnchorPoint = Vector2.new(0, 0)
+LineNumFrame.Position = UDim2.new(0, 10, 0, EDITOR_TOP)
+LineNumFrame.Size = UDim2.new(0, LINE_W, 1, -(EDITOR_TOP + 6))
+LineNumFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+LineNumFrame.BackgroundTransparency = 0.5
+LineNumFrame.BorderSizePixel = 0
+LineNumFrame.ClipsDescendants = true
+
+local LineNumScroll = Instance.new("ScrollingFrame", LineNumFrame)
+LineNumScroll.Name = "LineNumScroll"
+LineNumScroll.Size = UDim2.new(1, 0, 1, 0)
+LineNumScroll.BackgroundTransparency = 1
+LineNumScroll.ScrollBarThickness = 0
+LineNumScroll.ScrollingDirection = "Y"
+LineNumScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+LineNumScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+LineNumScroll.ElasticBehavior = Enum.ElasticBehavior.Never
+LineNumScroll.ScrollingEnabled = false
+
+-- Source sits to the right of LineNumFrame, width adjusts when line nums grow
+local Source = Instance.new("ScrollingFrame", executor.Frame)
+Source.Name = "Source"
+Source.AnchorPoint = Vector2.new(0, 0)
+Source.Position = UDim2.new(0, 10 + LINE_W + 2, 0, EDITOR_TOP)
+Source.Size = UDim2.new(1, -(10 + LINE_W + 2 + 40), 1, -(EDITOR_TOP + 6))
+Source.BackgroundTransparency = 0.5
+Source.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Source.BorderSizePixel = 0
+Source.CanvasSize = UDim2.new(0, 0, 0, 0)
+Source.ScrollBarImageColor3 = Color3.new(0, 1, 1)
+Source.ScrollBarThickness = 4
+Source.AutomaticCanvasSize = Enum.AutomaticSize.XY
+Source.ElasticBehavior = Enum.ElasticBehavior.Never
+Source.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+
+local ScriptBox = Instance.new("TextBox", Source)
+ScriptBox.Position = UDim2.new(0, 0, 0, 0)
+ScriptBox.Size = UDim2.new(1, 0, 1, 0)
+ScriptBox.AutomaticSize = Enum.AutomaticSize.XY
+ScriptBox.BackgroundTransparency = 1
+ScriptBox.BorderSizePixel = 0
+ScriptBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ScriptBox.TextXAlignment = Enum.TextXAlignment.Left
+ScriptBox.TextYAlignment = Enum.TextYAlignment.Top
+ScriptBox.TextWrapped = false
+ScriptBox.TextScaled = false
+ScriptBox.ClearTextOnFocus = false
+ScriptBox.MultiLine = true
+ScriptBox.TextSize = 14
+ScriptBox.Font = Enum.Font.Code
+ScriptBox.Text = ""
+ScriptBox.TextEditable = true
+ScriptBox.CursorPosition = -1
+
+local function UpdateScriptBoxSize()
+	if ScriptBox:IsFocused() then return end
+	local tx, ty = ScriptBox.TextBounds.X, ScriptBox.TextBounds.Y
+	local sx, sy = Source.AbsoluteSize.X, Source.AbsoluteSize.Y
+	local newX = math.max(0, tx - sx + 6)
+	local newY = math.max(0, ty - sy + 6)
+	ScriptBox.Size = UDim2.new(1, newX, 1, newY)
+end
+
+ScriptBox:GetPropertyChangedSignal("TextBounds"):Connect(UpdateScriptBoxSize)
+ScriptBox.FocusLost:Connect(UpdateScriptBoxSize)
+Source:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateScriptBoxSize)
+
+local LineNumbers = Instance.new("TextLabel", LineNumScroll)
+LineNumbers.Name = "LineNumbers"
+LineNumbers.AnchorPoint = Vector2.new(0, 0)
+LineNumbers.Position = UDim2.new(0, 0, 0, 0)
+LineNumbers.Size = UDim2.new(1, 0, 1, 0)
+LineNumbers.AutomaticSize = Enum.AutomaticSize.Y
+LineNumbers.BackgroundTransparency = 1
+LineNumbers.BorderSizePixel = 0
+LineNumbers.TextColor3 = Color3.fromRGB(120, 200, 200)
+LineNumbers.TextXAlignment = Enum.TextXAlignment.Right
+LineNumbers.TextYAlignment = Enum.TextYAlignment.Top
+LineNumbers.Font = Enum.Font.Code
+LineNumbers.TextSize = 14
+LineNumbers.TextWrapped = false
+LineNumbers.Text = "1"
+
+local function UpdateLines()
+	local count = 1
+	for _ in string.gmatch(ScriptBox.Text, "\n") do count += 1 end
+	local t = {}
+	for i = 1, count do t[i] = i end
+	LineNumbers.Text = table.concat(t, "\n")
+end
+UpdateLines()
+ScriptBox:GetPropertyChangedSignal("Text"):Connect(UpdateLines)
+
+-- When line number text width changes, resize LineNumFrame and reposition Source
+local GUTTER_PAD = 8
+LineNumbers:GetPropertyChangedSignal("TextBounds"):Connect(function()
+	local newW = LineNumbers.TextBounds.X + GUTTER_PAD
+	local left = 10 + newW + 2
+	LineNumFrame.Size = UDim2.new(0, newW, 1, -(EDITOR_TOP + 6))
+	Source.Position = UDim2.new(0, left, 0, EDITOR_TOP)
+	Source.Size = UDim2.new(1, -(left + 40), 1, -(EDITOR_TOP + 6))
+end)
+
+-- Sync LineNumScroll vertical offset with Source canvas scroll
+Source:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+	LineNumScroll.CanvasPosition = Vector2.new(0, Source.CanvasPosition.Y)
+end)
+
+-- ── Tool buttons ──────────────────────────────────────────────────────────────
+local ToolContainer = Instance.new("Frame", executor.Frame)
+ToolContainer.Name = "ToolContainer"
+ToolContainer.AnchorPoint = Vector2.new(1, 0.5)
+ToolContainer.Position = UDim2.new(1, -2, 0.5, 0)
+ToolContainer.Size = UDim2.new(0, 36, 1, -16)
+ToolContainer.BackgroundTransparency = 1
+
+local ToolLayout = Instance.new("UIListLayout", ToolContainer)
+ToolLayout.Padding = UDim.new(0, 6)
+ToolLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ToolLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+ToolLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function CreateToolButton(imageId)
+	local btn = Instance.new("TextButton", ToolContainer)
+	btn.Size = UDim2.new(0, 32, 0, 32)
+	btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	btn.BackgroundTransparency = 0.3
+	btn.BorderSizePixel = 0
+	btn.Text = ""
+	local c = Instance.new("UICorner", btn)
+	c.CornerRadius = UDim.new(0, 10)
+	
+	local icon = Instance.new("ImageLabel", btn)
+	icon.Size = UDim2.new(0.8, 0, 0.8, 0)
+	icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+	icon.BackgroundTransparency = 1
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Image = imageId and ("rbxassetid://" .. imageId) or ""
+	return btn
+end
+
+local ExecuteBtn = CreateToolButton(116651535114885)
+local UndoBtn    = CreateToolButton(107044600796242)
+local RedoBtn    = CreateToolButton(133742372514080)
+local ClearBtn   = CreateToolButton(128372145651723)
+local SaveBtn   = CreateToolButton(11768914234)
+
+-- ── Undo / Redo history ───────────────────────────────────────────────────────
+local History   = {}
+local RedoStack = {}
+local MaxHistory = 100
+local Changing   = false
+
+local function UpdateUndoRedoState()
+	local canUndo = #History > 1
+	local canRedo = #RedoStack > 0
+	local undoIcon = UndoBtn:FindFirstChildOfClass("ImageLabel")
+	local redoIcon = RedoBtn:FindFirstChildOfClass("ImageLabel")
+	if undoIcon then undoIcon.ImageTransparency = canUndo and 0 or 0.65 end
+	if redoIcon then redoIcon.ImageTransparency = canRedo and 0 or 0.65 end
+	UndoBtn.BackgroundTransparency = canUndo and 0.3 or 0.7
+	RedoBtn.BackgroundTransparency = canRedo and 0.3 or 0.7
+end
+
+local function SaveState(text)
+	if History[#History] ~= text then
+		table.insert(History, text)
+		if #History > MaxHistory then table.remove(History, 1) end
+	end
+	UpdateUndoRedoState()
+end
+
+SaveState(ScriptBox.Text)
+
+ExecuteBtn.MouseButton1Click:Connect(function()
+	local func, err = loadstring(ScriptBox.Text)
+	if func then pcall(func) else warn("Execution Error:", err) end
+end)
+
+UndoBtn.MouseButton1Click:Connect(function()
+	if #History > 1 then
+		Changing = true
+		local last = table.remove(History)
+		table.insert(RedoStack, last)
+		ScriptBox.Text = History[#History]
+		task.wait(0.1)
+		Changing = false
+		UpdateUndoRedoState()
+	end
+end)
+
+RedoBtn.MouseButton1Click:Connect(function()
+	if #RedoStack > 0 then
+		Changing = true
+		local text = table.remove(RedoStack)
+		table.insert(History, text)
+		ScriptBox.Text = text
+		task.wait(0.1)
+		Changing = false
+		UpdateUndoRedoState()
+	end
+end)
+
+ClearBtn.MouseButton1Click:Connect(function()
+	ScriptBox.Text = ""
+end)
+
+
+--[[
+	Each entry in ScriptTabs:
+	  { name, button (the tab TextButton), closeBtn }
+	activeTab  = index of the currently selected tab
+	pendingClose[i] = true if the tab was clicked once for close (needs second click)
+]]
+
+local ScriptTabs  = {}
+local activeTab   = 0
+local pendingClose = {}
+local tabCounter  = 0
+
+local function SanitizeName(name)
+	-- strip characters that are unsafe in filenames
+	return (name:gsub('[<>:"/\\|?*%c]', "_"))
+end
+
+local function SelectTab(index)
+	-- save current content before switching
+	if activeTab > 0 and ScriptTabs[activeTab] then
+		ScriptTabs[activeTab].content = ScriptBox.Text
+		SaveTab(ScriptTabs[activeTab].name, ScriptBox.Text)
+	end
+
+	activeTab = index
+	local tab = ScriptTabs[index]
+
+	-- update ScriptBox
+	Changing = true
+	ScriptBox.Text = tab.content
+	History = {tab.content}
+	RedoStack = {}
+	Changing = false
+	UpdateLines()
+	UpdateUndoRedoState()
+
+	-- update button visual states
+	for i, t in ipairs(ScriptTabs) do
+		local stroke = t.button:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Enabled = (i == index)
+		end
+		t.button.BackgroundTransparency = (i == index) and 0.2 or 0.6
+	end
+
+	-- clear any pending-close state on the newly selected tab
+	pendingClose[index] = nil
+	local closeLabel = tab.button:FindFirstChild("CloseLabel")
+	if closeLabel then closeLabel.Text = "×" end
+end
+
+local function RemoveTab(index)
+	local tab = ScriptTabs[index]
+	DeleteTab(tab.name)
+	tab.button:Destroy()
+	table.remove(ScriptTabs, index)
+	table.remove(pendingClose, index)
+
+	if #ScriptTabs == 0 then
+		-- no tabs left — clear editor
+		activeTab = 0
+		Changing = true
+		ScriptBox.Text = ""
+		Changing = false
+		UpdateLines()
+		return
+	end
+
+	-- pick a sensible tab to switch to
+	local next = math.min(index, #ScriptTabs)
+	activeTab = 0  -- force SelectTab to not save to the removed tab
+	SelectTab(next)
+end
+
+local function AddScriptTab(name, content)
+	name = name or ("Script " .. tabCounter)
+	content = content or "-- " .. name .. "\n"
+
+	-- ── tab button container ──────────────────────────────────────────────────
+	local btn = Instance.new("TextButton", TabBarScroll)
+	btn.Name = "ScriptTab_" .. tabCounter
+	btn.LayoutOrder = tabCounter
+	btn.Size = UDim2.new(0, 90, 1, 0)
+	btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	btn.BackgroundTransparency = 0.6
+	btn.Text = ""
+	btn.AutoButtonColor = false
+	btn.ClipsDescendants = false
+
+	local btnCorner = Instance.new("UICorner", btn)
+	btnCorner.CornerRadius = UDim.new(1, 0)
+
+	-- selection stroke (red, hidden until selected)
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color = Color3.fromRGB(255, 60, 60)
+	stroke.Thickness = 2
+	stroke.Transparency = 0
+	stroke.Enabled = false
+
+	-- name label (left side, editable on double-click)
+	local nameLabel = Instance.new("TextLabel", btn)
+	nameLabel.Name = "NameLabel"
+	nameLabel.AnchorPoint = Vector2.new(0, 0.5)
+	nameLabel.Position = UDim2.new(0, 8, 0.5, 0)
+	nameLabel.Size = UDim2.new(1, -26, 1, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = name
+	nameLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
+	nameLabel.TextSize = 11
+	nameLabel.Font = Enum.Font.GothamMedium
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+	-- hidden TextBox for renaming
+	local nameBox = Instance.new("TextBox", btn)
+	nameBox.Name = "NameBox"
+	nameBox.AnchorPoint = Vector2.new(0, 0.5)
+	nameBox.Position = UDim2.new(0, 8, 0.5, 0)
+	nameBox.Size = UDim2.new(1, -26, 1, 0)
+	nameBox.BackgroundTransparency = 1
+	nameBox.Text = name
+	nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameBox.TextSize = 11
+	nameBox.Font = Enum.Font.GothamMedium
+	nameBox.TextXAlignment = Enum.TextXAlignment.Left
+	nameBox.ClearTextOnFocus = false
+	nameBox.Visible = false
+
+	-- close button (right side, needs two clicks)
+	local closeBtn = Instance.new("TextButton", btn)
+	closeBtn.Name = "CloseLabel"
+	closeBtn.AnchorPoint = Vector2.new(1, 0.5)
+	closeBtn.Position = UDim2.new(1, -4, 0.5, 0)
+	closeBtn.Size = UDim2.new(0, 16, 0, 16)
+	closeBtn.BackgroundTransparency = 1
+	closeBtn.Text = "×"
+	closeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+	closeBtn.TextSize = 13
+	closeBtn.Font = Enum.Font.GothamBold
+
+	local index = #ScriptTabs + 1
+	ScriptTabs[index] = {
+		name    = name,
+		content = content,
+		button  = btn,
+	}
+
+	-- save file if it doesn't already exist
+	if not isfile(TabPath(name)) then
+		SaveTab(name, content)
+	end
+
+	-- ── interactions ──────────────────────────────────────────────────────────
+
+	-- select this tab on click (on the button itself, not the close btn)
+	btn.MouseButton1Click:Connect(function()
+		local myIndex
+		for i, t in ipairs(ScriptTabs) do
+			if t.button == btn then myIndex = i break end
+		end
+		if myIndex then SelectTab(myIndex) end
+	end)
+
+	-- double-click (two clicks within 0.4s) on the active tab enters rename mode
+	local lastClickTime = 0
+	btn.MouseButton1Click:Connect(function()
+		local myIndex
+		for i, t in ipairs(ScriptTabs) do
+			if t.button == btn then myIndex = i break end
+		end
+		if myIndex ~= activeTab then return end
+		local now = tick()
+		if now - lastClickTime < 0.4 then
+			-- enter rename mode
+			nameLabel.Visible = false
+			nameBox.Visible = true
+			nameBox:CaptureFocus()
+		end
+		lastClickTime = now
+	end)
+
+	nameBox.FocusLost:Connect(function(enterPressed)
+		local newName = nameBox.Text:match("^%s*(.-)%s*$")  -- trim whitespace
+		newName = SanitizeName(newName)
+		if newName == "" then newName = nameLabel.Text end
+
+		local myIndex
+		for i, t in ipairs(ScriptTabs) do
+			if t.button == btn then myIndex = i break end
+		end
+
+		if myIndex and newName ~= ScriptTabs[myIndex].name then
+			RenameTabFile(ScriptTabs[myIndex].name, newName)
+			ScriptTabs[myIndex].name = newName
+		end
+
+		nameLabel.Text = newName
+		nameBox.Text   = newName
+		nameLabel.Visible = true
+		nameBox.Visible   = false
+	end)
+
+	-- close button: first click turns it red + sets pending, second click removes
+	closeBtn.MouseButton1Click:Connect(function()
+		local myIndex
+		for i, t in ipairs(ScriptTabs) do
+			if t.button == btn then myIndex = i break end
+		end
+		if not myIndex then return end
+
+		if pendingClose[myIndex] then
+			-- second click — actually close
+			RemoveTab(myIndex)
+		else
+			-- first click — arm for close, dim × to gray
+			pendingClose[myIndex] = true
+			closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+			-- auto-disarm after 2 seconds
+			task.delay(2, function()
+				if pendingClose[myIndex] then
+					pendingClose[myIndex] = nil
+					if closeBtn and closeBtn.Parent then
+						closeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+					end
+				end
+			end)
+		end
+	end)
+
+	-- select the new tab immediately
+	SelectTab(index)
+	return index
+end
+
+-- "+" button creates a new blank tab
+AddTabBtn.MouseButton1Click:Connect(function()
+	tabCounter += 1
+	AddScriptTab("Script " .. tabCounter)
+end)
+
+local autoSaveThread = nil
+ScriptBox:GetPropertyChangedSignal("Text"):Connect(function()
+	if Changing then return end
+	SaveState(ScriptBox.Text)
+	RedoStack = {}
+	-- auto-save: debounce 1s so we don't writefile on every keystroke
+	if autoSaveThread then task.cancel(autoSaveThread) end
+	autoSaveThread = task.delay(1, function()
+		if activeTab > 0 and ScriptTabs[activeTab] then
+			ScriptTabs[activeTab].content = ScriptBox.Text
+			SaveTab(ScriptTabs[activeTab].name, ScriptBox.Text)
+		end
+	end)
+end)
+
+-- ── Boot: load saved tabs or create a default one ─────────────────────────────
+local function BootTabs()
+	-- collect .lua files saved from previous sessions
+	local loaded = false
+	local ok, files = pcall(listfiles, SAVE_DIR)
+	if ok and files then
+		table.sort(files)
+		for _, path in ipairs(files) do
+			local fileName = path:match("([^/\\]+)%.lua$")
+			if fileName then
+				local content = LoadTab(fileName)
+				AddScriptTab(fileName, content)
+				loaded = true
+			end
+		end
+	end
+	if not loaded then
+		AddScriptTab("Script 1", "-- Script 1\n")
+	end
+end
+
+BootTabs()
