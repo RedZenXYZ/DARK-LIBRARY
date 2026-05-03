@@ -882,29 +882,5 @@ function Dark.CreateLib()
 	return Lib
 end
 
-local Lib = Dark.CreateLib()
-local tab = Lib:AddTab("Tab")
-tab:AddTextLabel("name")
-
-tab:AddButton("name", "info", function()
-	print("clicked")
-end)
-
-tab:AddToggle("name", "info", function(state)
-	print(state)
-end)
-
-tab:AddTextBox("name", "info", "input here", function(input)
-	print(input)
-end)
-
-tab:AddSlider("name", "info", 0, 1000, 50, function(value)
-	print(value)
-end)
-
-tab:AddDropdown("name", "info", {"hello", "world"}, function(select)
-	print(select)
-end)
-
 getgenv().DARK_EXECUTOR = Dark
 return Dark
