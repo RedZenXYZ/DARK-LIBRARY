@@ -5,14 +5,16 @@ local executor = Lib:AddTab("EXECUTOR", nil, "full")
 
 -- ── Save directory ────────────────────────────────────────────────────────────
 local SAVE_DIR = "DarkExecutor"
+local TABS_DIR = SAVE_DIR .. "/Tabs"
 if not isfolder(SAVE_DIR) then makefolder(SAVE_DIR) end
+if not isfolder(TABS_DIR) then makefolder(TABS_DIR) end
 
 local function TabPath(name)
-	return SAVE_DIR .. "/" .. name .. ".lua"
+	return TABS_DIR .. "/" .. name .. ".lua"
 end
 
-local function SaveTab(name, text)
-	pcall(writefile, TabPath(name), text)
+local function SaveTab(name, content)
+	pcall(writefile, TabPath(name), content)
 end
 
 local function LoadTab(name)
@@ -141,7 +143,7 @@ local function UpdateScriptBoxSize()
 	local sx, sy = Source.AbsoluteSize.X, Source.AbsoluteSize.Y
 	local newX = math.max(0, tx - sx + 6)
 	local newY = math.max(0, ty - sy + 6)
-	ScriptBox.Size = UDim2.new(1, newX, 1, newY)
+	ScriptBox.Size = UDim2.new(1, newX, 1, 0)
 end
 
 ScriptBox:GetPropertyChangedSignal("TextBounds"):Connect(UpdateScriptBoxSize)
@@ -163,6 +165,9 @@ LineNumbers.Font = Enum.Font.Code
 LineNumbers.TextSize = 14
 LineNumbers.TextWrapped = false
 LineNumbers.Text = "1"
+
+local TextPadding = Instance.new("UIPadding", TabsScroll)
+TextPadding.PaddingRight = UDim.new(0, 2)
 
 local function UpdateLines()
 	local count = 1
@@ -548,7 +553,7 @@ end)
 local function BootTabs()
 	-- collect .lua files saved from previous sessions
 	local loaded = false
-	local ok, files = pcall(listfiles, SAVE_DIR)
+	local ok, files = pcall(listfiles, TABS_DIR)
 	if ok and files then
 		table.sort(files)
 		for _, path in ipairs(files) do
