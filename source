@@ -201,7 +201,7 @@ function Dark.CreateLib()
 	Scroll.AnchorPoint = Vector2.new(0, 0)
 	Scroll.Position = UDim2.new(1, 8, 0, 0)
 	Scroll.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-	Scroll.BackgroundTransparency = 0.4
+	Scroll.BackgroundTransparency = 1
 
 	local scrollCorner = Instance.new("UICorner", Scroll)
 	scrollCorner.CornerRadius = UDim.new(0, 12)
@@ -976,10 +976,16 @@ function Dark.CreateLib()
 			function LabelFunction:SetColor(c) lbl.TextColor3 = c end
 			return LabelFunction
 		end
+		
+		--=== Return Tab Frame for Custom stuff ===--
+		function Tab:GetFrame()
+			return TabPage
+		end
 
 		return Tab
 	end
 	
+	--=== Set Window Background ===--
 	function Lib:SetBackground(image, transparency)
 		pcall(writefile, SAVE_DIR .. "/bg.json", jsonencode({image, transparency}))
 		local image = image
