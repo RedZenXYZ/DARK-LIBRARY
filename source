@@ -41,7 +41,8 @@ function Dark.CreateLib()
 	local MoreExecutor = Instance.new("Frame", ScreenGui)
 	local OpenButton = Instance.new("TextButton", MoreExecutor)
 	local Label = Instance.new("ImageLabel", OpenButton)
-	local Scroll = Instance.new("ImageLabel", Frame)
+	local Scroll = Instance.new("CanvasGroup", Frame)
+	local ScrollBG = Instance.new("ImageLabel", Scroll)
 	local TabsScroll = Instance.new("ScrollingFrame", Scroll)
 	local UIListLayout = Instance.new("UIListLayout", TabsScroll)
 	local TabClose = Instance.new("ImageButton", Scroll)
@@ -49,6 +50,7 @@ function Dark.CreateLib()
 	local FrameTabs = Instance.new("Folder", Frame)
 
 	ScreenGui.Name = "DARK_EXECUTOR"
+	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	-- ── Floating open/close button ──────────────────────────────────────────
 	MoreExecutor.Name = "MoreExecutor"
@@ -194,23 +196,28 @@ function Dark.CreateLib()
 	end)
 
 	-- ── Tab sidebar ──────────────────────────────────────────────────────────
-	Scroll.Name = "ScrollBackground"
+	Scroll.Name = "ScrollFrame"
 	Scroll.Size = UDim2.new(0.2, 0, 1, 0)
 	Scroll.AnchorPoint = Vector2.new(0, 0)
 	Scroll.Position = UDim2.new(1, 8, 0, 0)
 	Scroll.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 	Scroll.BackgroundTransparency = 0.4
-	Scroll.ClipsDescendants = true
-	Scroll.ScaleType = Enum.ScaleType.Crop
 
 	local scrollCorner = Instance.new("UICorner", Scroll)
 	scrollCorner.CornerRadius = UDim.new(0, 12)
+	
+	ScrollBG.Name = "ScrollBackground"
+	ScrollBG.Size = UDim2.new(1, 0, 1, 0)
+	ScrollBG.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+	ScrollBG.BackgroundTransparency = 0.4
+	ScrollBG.ScaleType = Enum.ScaleType.Crop
 
 	TabsScroll.Name = "TabsBar"
 	TabsScroll.AnchorPoint = Vector2.new(0, 0)
 	TabsScroll.Position = UDim2.new(0, 0, 0, 0)
-	TabsScroll.Size = UDim2.new(1, 0, 1, -32)
+	TabsScroll.Size = UDim2.new(1, 0, 1, -28)
 	TabsScroll.BackgroundTransparency = 1
+	TabsScroll.BorderSizePixel = 0
 	TabsScroll.ScrollBarThickness = 0
 	TabsScroll.ScrollingDirection = "Y"
 	TabsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -234,6 +241,7 @@ function Dark.CreateLib()
 	TabClose.Position = UDim2.new(0, 0, 1, 0)
 	TabClose.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	TabClose.BackgroundTransparency = 0.4
+	TabClose.BorderSizePixel = 0
 	TabClose.Image = ""
 	TabClose.MouseButton1Click:Connect(function()
 		scrolltween = TweenService:Create(Scroll, TweenInfo.new(0.15), {Size = UDim2.new(0, 22, 1, 0)})
@@ -244,9 +252,6 @@ function Dark.CreateLib()
 			TabBarOpen.Visible = true
 		end)
 	end)
-
-	local closeCorner = Instance.new("UICorner", TabClose)
-	closeCorner.CornerRadius = UDim.new(0, 10)
 
 	local function MakeBarLine(parent, yOffset)
 		local l = Instance.new("Frame", parent)
@@ -329,14 +334,15 @@ function Dark.CreateLib()
 	-- ────────────────────────────────────────────────────────────────────────
 	-- Helper: make fading effect
 	-- ────────────────────────────────────────────────────────────────────────
-	function MakeFade(parent, height, bottom)
-		local pos = bottom and 1 or 0
+	function MakeFade(parent, height, position)
+		local pos = position == "bottom" and 1 or 0
 		local frame = Instance.new("Frame", parent)
 		frame.BackgroundTransparency = 0.4
 		frame.BackgroundColor3 = Color3.new(1, 1, 1)
 		frame.Size = UDim2.new(1, 0, 0, height or 40)
 		frame.Position = UDim2.new(0, 0, pos, 0)
 		frame.AnchorPoint = Vector2.new(0, pos)
+		frame.BorderSizePixel = 0
 		
 		local corner = parent:FindFirstChildOfClass("UICorner")
 		if corner then
@@ -344,10 +350,10 @@ function Dark.CreateLib()
 		end
 		
 		local gradient = Instance.new("UIGradient", frame)
-		gradient.Rotation = bottom and -90 or 90
+		gradient.Rotation = position == "bottom" and -90 or 90
 		gradient.Color = ColorSequence.new({
-		    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-		    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+		    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 20)),
+		    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))
 		})
 		
 		gradient.Transparency = NumberSequence.new({
@@ -357,7 +363,9 @@ function Dark.CreateLib()
 		return frame
 	end
 	MakeFade(Scroll, 50)
-	MakeFade(Scroll, 50, true)
+	local bottomFade = MakeFade(Scroll, 50, "bottom")
+	bottomFade.Position = UDim2.new(0, 0, 1, -28)
+	bottomFade:FindFirstChildOfClass("UICorner"):Destroy()
 
 	-- ────────────────────────────────────────────────────────────────────────
 	-- Lib
@@ -982,8 +990,8 @@ function Dark.CreateLib()
 		Background.Image = image
 		Background.ImageTransparency = transparency
 		
-		Scroll.Image = image
-		Scroll.ImageTransparency = transparency
+		ScrollBG.Image = image
+		ScrollBG.ImageTransparency = transparency
 	end
 	
 	--=== Set Background Image from Save ===--
