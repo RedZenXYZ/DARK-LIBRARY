@@ -137,6 +137,11 @@ ScriptBox.Text = ""
 ScriptBox.TextEditable = true
 ScriptBox.CursorPosition = -1
 
+local ScriptPadding = Instance.new("UIPadding", ScriptBox)
+ScriptPadding.PaddingLeft = UDim.new(0, 2)
+ScriptPadding.PaddingRight = UDim.new(0, 30)
+ScriptPadding.PaddingBottom = UDim.new(0, 30)
+
 local function UpdateScriptBoxSize()
 	if ScriptBox:IsFocused() then return end
 	local tx, ty = ScriptBox.TextBounds.X, ScriptBox.TextBounds.Y
@@ -168,6 +173,7 @@ LineNumbers.Text = "1"
 
 local TextPadding = Instance.new("UIPadding", LineNumbers)
 TextPadding.PaddingRight = UDim.new(0, 2)
+TextPadding.PaddingBottom = UDim.new(0, 30)
 
 local function UpdateLines()
 	local count = 1
