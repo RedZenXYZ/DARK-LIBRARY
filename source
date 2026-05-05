@@ -475,8 +475,15 @@ function Dark.CreateLib()
 			ContentParent = sf
 		end
 
-		-- ── Tab button click: deselect all, select this one (tweened) ──────
-		TabButton.MouseButton1Click:Connect(function()
+		-- ── Tab API object ─────────────────────────────────────────────────
+		local Tab = {Frame = TabPage, Content = ContentParent}
+		local componentOrder = 0
+		local function nextOrder()
+			componentOrder = componentOrder + 1
+			return componentOrder
+		end
+		
+		local function Tab:Select()
 			-- Deselect all tabs
 			for _, child in TabsScroll:GetChildren() do
 				if child:IsA("TextButton") then
@@ -496,15 +503,10 @@ function Dark.CreateLib()
 				TextColor3 = COL_TAB_SEL,
 			}):Play()
 			TabPage.Visible = true
-		end)
-
-		-- ── Tab API object ─────────────────────────────────────────────────
-		local Tab = {Frame = TabPage, Content = ContentParent}
-		local componentOrder = 0
-		local function nextOrder()
-			componentOrder = componentOrder + 1
-			return componentOrder
 		end
+		
+		-- ── Tab button click: deselect all, select this one (tweened) ──────
+		TabButton.MouseButton1Click:Connect(Tab:Select)
 
 		-- ── AddButton ─────────────────────────────────────────────────────
 		--   name     – button label
@@ -977,11 +979,6 @@ function Dark.CreateLib()
 			return LabelFunction
 		end
 		
-		--=== Return Tab Frame for Custom stuff ===--
-		function Tab:GetFrame()
-			return TabPage
-		end
-
 		return Tab
 	end
 	
