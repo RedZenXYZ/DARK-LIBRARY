@@ -137,11 +137,6 @@ ScriptBox.Text = ""
 ScriptBox.TextEditable = true
 ScriptBox.CursorPosition = -1
 
-local ScriptPadding = Instance.new("UIPadding", ScriptBox)
-ScriptPadding.PaddingLeft = UDim.new(0, 2)
-ScriptPadding.PaddingRight = UDim.new(0, 30)
-ScriptPadding.PaddingBottom = UDim.new(0, 30)
-
 local function UpdateScriptBoxSize()
 	if ScriptBox:IsFocused() then return end
 	local tx, ty = ScriptBox.TextBounds.X, ScriptBox.TextBounds.Y
@@ -173,7 +168,6 @@ LineNumbers.Text = "1"
 
 local TextPadding = Instance.new("UIPadding", LineNumbers)
 TextPadding.PaddingRight = UDim.new(0, 2)
-TextPadding.PaddingBottom = UDim.new(0, 30)
 
 local function UpdateLines()
 	local count = 1
@@ -298,6 +292,30 @@ end)
 ClearBtn.MouseButton1Click:Connect(function()
 	ScriptBox.Text = ""
 end)
+
+SaveBtn.MouseButton1Click:Connect(function()
+	-- default name from current tab
+	local defaultName = ""
+	if activeTab > 0 and ScriptTabs[activeTab] then
+		defaultName = ScriptTabs[activeTab].name
+	end
+	MakePopup(executor.Frame, "Save to Scripts Hub", {
+		{name = "Name", placeholder = defaultName ~= "" and defaultName or "Script name...", multiline = false},
+	}, function(values)
+		local newName = SanitizeName(values[1]:match("^%s*(.-)%s*$"))
+		if newName == "" then newName = defaultName end
+		if newName == "" then newName = "Saved Script" end
+		local content = ScriptBox.Text
+		-- avoid collision
+		local base, n = newName, 1
+		while HubEntries[newName] do
+			newName = base .. " (" .. n .. ")"
+			n += 1
+		end
+		AddHubEntry(newName, content)
+	end)
+end)
+
 
 
 --[[
@@ -566,3 +584,610 @@ local function BootTabs()
 end
 
 BootTabs()
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SCRIPTS HUB TAB
+-- ══════════════════════════════════════════════════════════════════════════════
+local HUB_DIR  = SAVE_DIR .. "/Hub"
+local FAV_FILE = SAVE_DIR .. "/favourites.txt"
+if not isfolder(HUB_DIR) then makefolder(HUB_DIR) end
+
+-- ── Persistence helpers ───────────────────────────────────────────────────────
+local function HubPath(name)
+	return HUB_DIR .. "/" .. name .. ".lua"
+end
+
+local function SaveHubScript(name, content)
+	pcall(writefile, HubPath(name), content)
+end
+
+local function LoadHubScript(name)
+	local ok, c = pcall(readfile, HubPath(name))
+	return ok and c or ""
+end
+
+local function DeleteHubScript(name)
+	pcall(delfile, HubPath(name))
+end
+
+local function RenameHubFile(oldName, newName)
+	local ok, c = pcall(readfile, HubPath(oldName))
+	if ok then
+		pcall(writefile, HubPath(newName), c)
+		pcall(delfile, HubPath(oldName))
+	end
+end
+
+-- favourites stored as newline-separated names in a single file
+local Favourites = {}
+
+local function LoadFavourites()
+	local ok, raw = pcall(readfile, FAV_FILE)
+	if not ok then return end
+	for line in raw:gmatch("[^\n]+") do
+		Favourites[line:match("^%s*(.-)%s*$")] = true
+	end
+end
+
+local function SaveFavourites()
+	local lines = {}
+	for name in pairs(Favourites) do
+		table.insert(lines, name)
+	end
+	pcall(writefile, FAV_FILE, table.concat(lines, "\n"))
+end
+
+LoadFavourites()
+
+-- ── Shared popup helper ───────────────────────────────────────────────────────
+-- Creates a modal popup with text fields and confirm/cancel buttons.
+-- fields = { {name="label", placeholder="...", multiline=false}, ... }
+-- onConfirm(values) called with a table of field values on confirm.
+local function MakePopup(parent, title, fields, onConfirm)
+	-- dark backdrop
+	local backdrop = Instance.new("Frame", parent)
+	backdrop.Name = "PopupBackdrop"
+	backdrop.Size = UDim2.new(1, 0, 1, 0)
+	backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	backdrop.BackgroundTransparency = 0.4
+	backdrop.BorderSizePixel = 0
+	backdrop.ZIndex = 20
+
+	local POPUP_W = 220
+	local FIELD_H = 24
+	local ML_H    = 70
+	local PAD     = 10
+	local BTN_H   = 26
+
+	-- calculate total height
+	local contentH = PAD + 20 + PAD  -- title
+	for _, f in ipairs(fields) do
+		contentH += (f.multiline and ML_H or FIELD_H) + PAD
+	end
+	contentH += BTN_H + PAD
+
+	local popup = Instance.new("Frame", backdrop)
+	popup.Name = "Popup"
+	popup.AnchorPoint = Vector2.new(0.5, 0.5)
+	popup.Position = UDim2.new(0.5, 0, 0.5, 0)
+	popup.Size = UDim2.new(0, POPUP_W, 0, contentH)
+	popup.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+	popup.BackgroundTransparency = 0.05
+	popup.BorderSizePixel = 0
+	popup.ZIndex = 21
+
+	local popupCorner = Instance.new("UICorner", popup)
+	popupCorner.CornerRadius = UDim.new(0, 12)
+
+	-- title label
+	local titleLbl = Instance.new("TextLabel", popup)
+	titleLbl.Size = UDim2.new(1, -PAD * 2, 0, 20)
+	titleLbl.Position = UDim2.new(0, PAD, 0, PAD)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Text = title
+	titleLbl.TextColor3 = Color3.fromRGB(230, 230, 230)
+	titleLbl.TextSize = 13
+	titleLbl.Font = Enum.Font.GothamBold
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	titleLbl.ZIndex = 22
+
+	-- build fields
+	local boxes = {}
+	local yOffset = PAD + 20 + PAD
+
+	for _, f in ipairs(fields) do
+		local lbl = Instance.new("TextLabel", popup)
+		lbl.Size = UDim2.new(1, -PAD * 2, 0, 12)
+		lbl.Position = UDim2.new(0, PAD, 0, yOffset)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = f.name
+		lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+		lbl.TextSize = 10
+		lbl.Font = Enum.Font.GothamMedium
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.ZIndex = 22
+		yOffset += 13
+
+		local fh = f.multiline and ML_H or FIELD_H
+		local box = Instance.new("TextBox", popup)
+		box.Size = UDim2.new(1, -PAD * 2, 0, fh)
+		box.Position = UDim2.new(0, PAD, 0, yOffset)
+		box.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		box.BackgroundTransparency = 0.2
+		box.BorderSizePixel = 0
+		box.Text = f.default or ""
+		box.PlaceholderText = f.placeholder or ""
+		box.PlaceholderColor3 = Color3.fromRGB(90, 90, 90)
+		box.TextColor3 = Color3.fromRGB(220, 220, 220)
+		box.TextSize = 12
+		box.Font = Enum.Font.Code
+		box.TextXAlignment = Enum.TextXAlignment.Left
+		box.TextYAlignment = f.multiline and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+		box.MultiLine = f.multiline or false
+		box.TextWrapped = f.multiline or false
+		box.ClearTextOnFocus = false
+		box.ZIndex = 22
+
+		local bCorner = Instance.new("UICorner", box)
+		bCorner.CornerRadius = UDim.new(0, 6)
+
+		if f.multiline then
+			local bPad = Instance.new("UIPadding", box)
+			bPad.PaddingLeft = UDim.new(0, 6)
+			bPad.PaddingTop  = UDim.new(0, 4)
+		else
+			local bPad = Instance.new("UIPadding", box)
+			bPad.PaddingLeft  = UDim.new(0, 6)
+			bPad.PaddingRight = UDim.new(0, 6)
+		end
+
+		table.insert(boxes, box)
+		yOffset += fh + PAD
+	end
+
+	-- confirm / cancel row
+	local confirmBtn = Instance.new("TextButton", popup)
+	confirmBtn.Size = UDim2.new(0.45, 0, 0, BTN_H)
+	confirmBtn.Position = UDim2.new(0.05, 0, 0, yOffset)
+	confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 0)
+	confirmBtn.BackgroundTransparency = 0.2
+	confirmBtn.BorderSizePixel = 0
+	confirmBtn.Text = "Confirm"
+	confirmBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+	confirmBtn.TextSize = 12
+	confirmBtn.Font = Enum.Font.GothamBold
+	confirmBtn.ZIndex = 22
+	local ccCorner = Instance.new("UICorner", confirmBtn)
+	ccCorner.CornerRadius = UDim.new(0, 8)
+
+	local cancelBtn = Instance.new("TextButton", popup)
+	cancelBtn.Size = UDim2.new(0.45, 0, 0, BTN_H)
+	cancelBtn.Position = UDim2.new(0.5, 0, 0, yOffset)
+	cancelBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+	cancelBtn.BackgroundTransparency = 0.2
+	cancelBtn.BorderSizePixel = 0
+	cancelBtn.Text = "Cancel"
+	cancelBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+	cancelBtn.TextSize = 12
+	cancelBtn.Font = Enum.Font.GothamBold
+	cancelBtn.ZIndex = 22
+	local cxCorner = Instance.new("UICorner", cancelBtn)
+	cxCorner.CornerRadius = UDim.new(0, 8)
+
+	cancelBtn.MouseButton1Click:Connect(function()
+		backdrop:Destroy()
+	end)
+
+	confirmBtn.MouseButton1Click:Connect(function()
+		local values = {}
+		for _, box in ipairs(boxes) do
+			table.insert(values, box.Text)
+		end
+		backdrop:Destroy()
+		onConfirm(values)
+	end)
+
+	-- focus first field
+	task.defer(function()
+		if boxes[1] then boxes[1]:CaptureFocus() end
+	end)
+
+	return backdrop
+end
+
+-- ── Hub tab frame ─────────────────────────────────────────────────────────────
+local hub = Lib:AddTab("HUB", nil, "full")
+hub.Frame.ClipsDescendants = true
+
+local HUB_PAD = 6
+local ITEM_H  = 36
+local BTN_W   = 26
+
+-- two buttons right of search: upload (⬆) only now
+-- layout: [SearchBar ........] [⬆]
+local TOPBAR_BTNS = BTN_W + HUB_PAD  -- 1 btn + right pad
+
+-- Search bar
+local SearchBar = Instance.new("TextBox", hub.Frame)
+SearchBar.Name = "SearchBar"
+SearchBar.AnchorPoint = Vector2.new(0, 0)
+SearchBar.Position = UDim2.new(0, HUB_PAD, 0, HUB_PAD)
+SearchBar.Size = UDim2.new(1, -(HUB_PAD + TOPBAR_BTNS + 4), 0, 26)
+SearchBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+SearchBar.BackgroundTransparency = 0.3
+SearchBar.BorderSizePixel = 0
+SearchBar.PlaceholderText = "Search scripts..."
+SearchBar.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+SearchBar.Text = ""
+SearchBar.TextColor3 = Color3.fromRGB(220, 220, 220)
+SearchBar.TextSize = 12
+SearchBar.Font = Enum.Font.GothamMedium
+SearchBar.TextXAlignment = Enum.TextXAlignment.Left
+SearchBar.ClearTextOnFocus = false
+
+local sbCorner = Instance.new("UICorner", SearchBar)
+sbCorner.CornerRadius = UDim.new(0, 8)
+local sbPad = Instance.new("UIPadding", SearchBar)
+sbPad.PaddingLeft = UDim.new(0, 8)
+sbPad.PaddingRight = UDim.new(0, 8)
+
+-- Upload button (⬆) — opens name+content popup
+local UploadBtn = Instance.new("TextButton", hub.Frame)
+UploadBtn.AnchorPoint = Vector2.new(1, 0)
+UploadBtn.Position = UDim2.new(1, -HUB_PAD, 0, HUB_PAD)
+UploadBtn.Size = UDim2.new(0, BTN_W, 0, 26)
+UploadBtn.BackgroundColor3 = Color3.fromRGB(0, 35, 60)
+UploadBtn.BackgroundTransparency = 0.2
+UploadBtn.Text = "⬆"
+UploadBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+UploadBtn.TextSize = 14
+UploadBtn.Font = Enum.Font.GothamBold
+UploadBtn.BorderSizePixel = 0
+local uploadCorner = Instance.new("UICorner", UploadBtn)
+uploadCorner.CornerRadius = UDim.new(1, 0)
+
+-- Scrollable list
+local LIST_TOP = HUB_PAD + 26 + HUB_PAD
+
+local HubScroll = Instance.new("ScrollingFrame", hub.Frame)
+HubScroll.Name = "HubScroll"
+HubScroll.AnchorPoint = Vector2.new(0, 0)
+HubScroll.Position = UDim2.new(0, 0, 0, LIST_TOP)
+HubScroll.Size = UDim2.new(1, 0, 1, -LIST_TOP)
+HubScroll.BackgroundTransparency = 1
+HubScroll.ScrollBarThickness = 3
+HubScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+HubScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+HubScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+HubScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+HubScroll.ElasticBehavior = Enum.ElasticBehavior.Never
+HubScroll.BorderSizePixel = 0
+
+local HubLayout = Instance.new("UIListLayout", HubScroll)
+HubLayout.Padding = UDim.new(0, 2)
+HubLayout.SortOrder = Enum.SortOrder.LayoutOrder
+HubLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local HubPad = Instance.new("UIPadding", HubScroll)
+HubPad.PaddingBottom = UDim.new(0, 4)
+HubPad.PaddingLeft = UDim.new(0, 4)
+HubPad.PaddingRight = UDim.new(0, 4)
+
+-- ── Divider rows ──────────────────────────────────────────────────────────────
+local DIVIDER_H = 18
+
+local function MakeDivider(labelText, order, isFav)
+	local row = Instance.new("Frame", HubScroll)
+	row.Name = "Divider_" .. labelText
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, 0, 0, DIVIDER_H)
+	row.BackgroundTransparency = 1
+
+	local lbl = Instance.new("TextLabel", row)
+	lbl.AnchorPoint = Vector2.new(0, 0.5)
+	lbl.Position = UDim2.new(0, 6, 0.5, 0)
+	lbl.Size = UDim2.new(0, 90, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = labelText
+	lbl.TextColor3 = isFav
+		and Color3.fromRGB(255, 200, 0)
+		or  Color3.fromRGB(140, 140, 140)
+	lbl.TextSize = 10
+	lbl.Font = Enum.Font.GothamBold
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	return row
+end
+
+-- layout order: favs = 1..499, divider at 0 and 500, all scripts = 501..999
+local FavDivider = MakeDivider("★  Favourites", 0,   true)
+local AllDivider = MakeDivider("All Scripts",   500, false)
+
+-- ── Entry helpers ─────────────────────────────────────────────────────────────
+local HubEntries = {}  -- [name] = { name, row, nameLabel, nameBox, favBtn }
+local searchQuery = ""
+
+local function MakeHubButton(parent, text, bgCol)
+	local b = Instance.new("TextButton", parent)
+	b.Size = UDim2.new(0, BTN_W, 0, BTN_W)
+	b.BackgroundColor3 = bgCol or Color3.fromRGB(30, 30, 30)
+	b.BackgroundTransparency = 0.3
+	b.BorderSizePixel = 0
+	b.Text = text
+	b.TextColor3 = Color3.fromRGB(220, 220, 220)
+	b.TextSize = 13
+	b.Font = Enum.Font.GothamBold
+	b.AutoButtonColor = false
+	local c = Instance.new("UICorner", b)
+	c.CornerRadius = UDim.new(1, 0)
+	return b
+end
+
+local function RefreshVisibility()
+	local q = searchQuery:lower()
+	local hasFav, hasAll = false, false
+	for name, entry in pairs(HubEntries) do
+		local visible = (q == "") or (name:lower():find(q, 1, true) ~= nil)
+		entry.row.Visible = visible
+		if visible then
+			if Favourites[name] then hasFav = true else hasAll = true end
+		end
+	end
+	FavDivider.Visible = hasFav
+	AllDivider.Visible = hasAll
+end
+
+local function UpdateLayout()
+	local favOrder, allOrder = 1, 501
+	for name, entry in pairs(HubEntries) do
+		if Favourites[name] then
+			entry.row.LayoutOrder = favOrder
+			favOrder += 1
+		else
+			entry.row.LayoutOrder = allOrder
+			allOrder += 1
+		end
+	end
+	RefreshVisibility()
+end
+
+-- ── AddHubEntry ───────────────────────────────────────────────────────────────
+local function AddHubEntry(name, content)
+	if HubEntries[name] then return end
+
+	SaveHubScript(name, content or "")
+
+	local row = Instance.new("Frame", HubScroll)
+	row.Name = "HubEntry_" .. name
+	row.Size = UDim2.new(1, 0, 0, ITEM_H)
+	row.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+	row.BackgroundTransparency = 0.4
+	row.BorderSizePixel = 0
+
+	local rowCorner = Instance.new("UICorner", row)
+	rowCorner.CornerRadius = UDim.new(0, 8)
+
+	-- 4 buttons now: exec, fav, import, delete
+	local NAME_RIGHT_PAD = BTN_W * 4 - 12
+
+	-- name label (left side)
+	local nameLabel = Instance.new("TextButton", row)
+	nameLabel.Name = "NameLabel"
+	nameLabel.AnchorPoint = Vector2.new(0, 0.5)
+	nameLabel.Position = UDim2.new(0, 10, 0.5, 0)
+	nameLabel.Size = UDim2.new(1, -NAME_RIGHT_PAD, 1, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = name
+	nameLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
+	nameLabel.TextSize = 12
+	nameLabel.Font = Enum.Font.GothamMedium
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+	-- hidden rename TextBox
+	local nameBox = Instance.new("TextBox", row)
+	nameBox.Name = "NameBox"
+	nameBox.AnchorPoint = Vector2.new(0, 0.5)
+	nameBox.Position = UDim2.new(0, 10, 0.5, 0)
+	nameBox.Size = UDim2.new(1, -NAME_RIGHT_PAD, 1, 0)
+	nameBox.BackgroundTransparency = 1
+	nameBox.Text = name
+	nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameBox.TextSize = 12
+	nameBox.Font = Enum.Font.GothamMedium
+	nameBox.TextXAlignment = Enum.TextXAlignment.Left
+	nameBox.ClearTextOnFocus = false
+	nameBox.Visible = false
+
+	-- right-side buttons container (4 buttons × BTN_W + 3 gaps of 4)
+	local btnRow = Instance.new("Frame", row)
+	btnRow.AnchorPoint = Vector2.new(1, 0.5)
+	btnRow.Position = UDim2.new(1, -6, 0.5, 0)
+	btnRow.Size = UDim2.new(0, BTN_W * 4 + 12, 0, BTN_W)
+	btnRow.BackgroundTransparency = 1
+
+	local btnLayout = Instance.new("UIListLayout", btnRow)
+	btnLayout.FillDirection = Enum.FillDirection.Horizontal
+	btnLayout.Padding = UDim.new(0, 4)
+	btnLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	btnLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local execBtn   = MakeHubButton(btnRow, "▶", Color3.fromRGB(0, 55, 0))
+	local favBtn    = MakeHubButton(btnRow, Favourites[name] and "★" or "☆", Color3.fromRGB(45, 35, 0))
+	local importBtn = MakeHubButton(btnRow, "↓", Color3.fromRGB(0, 25, 55))
+	local deleteBtn = MakeHubButton(btnRow, "🗑", Color3.fromRGB(55, 0, 0))
+	execBtn.LayoutOrder   = 4
+	favBtn.LayoutOrder    = 3
+	importBtn.LayoutOrder = 2
+	deleteBtn.LayoutOrder = 1
+
+	favBtn.TextColor3 = Favourites[name]
+		and Color3.fromRGB(255, 200, 0)
+		or  Color3.fromRGB(140, 140, 140)
+
+	local entry = {
+		name      = name,
+		row       = row,
+		nameLabel = nameLabel,
+		nameBox   = nameBox,
+		favBtn    = favBtn,
+	}
+
+	-- ── delete (two clicks, auto-disarms after 2s) ────────────────────────────
+	local pendingDelete = false
+	deleteBtn.MouseButton1Click:Connect(function()
+		if pendingDelete then
+			-- second click — remove entry
+			if Favourites[entry.name] then
+				Favourites[entry.name] = nil
+				SaveFavourites()
+			end
+			DeleteHubScript(entry.name)
+			HubEntries[entry.name] = nil
+			row:Destroy()
+			RefreshVisibility()
+		else
+			-- first click — arm, turn red
+			pendingDelete = true
+			deleteBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+			deleteBtn.BackgroundTransparency = 0.2
+			task.delay(2, function()
+				if pendingDelete and deleteBtn.Parent then
+					pendingDelete = false
+					deleteBtn.BackgroundColor3 = Color3.fromRGB(55, 0, 0)
+					deleteBtn.BackgroundTransparency = 0.3
+				end
+			end)
+		end
+	end)
+	HubEntries[name] = entry
+
+	-- ── double-click to rename ────────────────────────────────────────────────
+	local lastClick = 0
+	nameLabel.MouseButton1Click:Connect(function()
+		local now = tick()
+		if now - lastClick < 0.4 then
+			nameLabel.Visible = false
+			nameBox.Visible = true
+			nameBox:CaptureFocus()
+		end
+		lastClick = now
+	end)
+
+	nameBox.FocusLost:Connect(function()
+		local newName = SanitizeName(nameBox.Text:match("^%s*(.-)%s*$"))
+		if newName == "" then newName = entry.name end
+
+		if newName ~= entry.name then
+			local oldName = entry.name
+			if Favourites[oldName] then
+				Favourites[oldName] = nil
+				Favourites[newName] = true
+				SaveFavourites()
+			end
+			RenameHubFile(oldName, newName)
+			HubEntries[oldName] = nil
+			entry.name = newName
+			HubEntries[newName] = entry
+			row.Name = "HubEntry_" .. newName
+		end
+
+		nameLabel.Text = entry.name
+		nameBox.Text   = entry.name
+		nameLabel.Visible = true
+		nameBox.Visible   = false
+		UpdateLayout()
+	end)
+
+	-- ── execute ───────────────────────────────────────────────────────────────
+	execBtn.MouseButton1Click:Connect(function()
+		local src = LoadHubScript(entry.name)
+		local fn, err = loadstring(src)
+		if fn then pcall(fn) else warn("Hub Execute Error:", err) end
+	end)
+
+	-- ── favourite toggle ──────────────────────────────────────────────────────
+	favBtn.MouseButton1Click:Connect(function()
+		if Favourites[entry.name] then
+			Favourites[entry.name] = nil
+			favBtn.Text = "☆"
+			favBtn.TextColor3 = Color3.fromRGB(140, 140, 140)
+		else
+			Favourites[entry.name] = true
+			favBtn.Text = "★"
+			favBtn.TextColor3 = Color3.fromRGB(255, 200, 0)
+		end
+		SaveFavourites()
+		UpdateLayout()
+	end)
+
+	-- ── import — always opens a new script tab ───────────────────────────────
+	importBtn.MouseButton1Click:Connect(function()
+		local src = LoadHubScript(entry.name)
+		tabCounter += 1
+		AddScriptTab(entry.name, src)
+		executor:Select()
+	end)
+
+	UpdateLayout()
+end
+
+-- ── Upload button — popup with name + content fields ─────────────────────────
+UploadBtn.MouseButton1Click:Connect(function()
+	MakePopup(hub.Frame, "Upload Script", {
+		{name = "Name",    placeholder = "Script name...",         multiline = false},
+		{name = "Content", placeholder = "-- Paste script here...", multiline = true},
+	}, function(values)
+		local newName = SanitizeName((values[1] or ""):match("^%s*(.-)%s*$"))
+		local content = values[2] or ""
+		if newName == "" then newName = "Uploaded Script" end
+		local base, n = newName, 1
+		while HubEntries[newName] do
+			newName = base .. " (" .. n .. ")"
+			n += 1
+		end
+		AddHubEntry(newName, content)
+	end)
+end)
+
+-- ── SaveBtn — save current executor tab into ScriptsHub ──────────────────────
+SaveBtn.MouseButton1Click:Connect(function()
+	local defaultName = (activeTab > 0 and ScriptTabs[activeTab])
+		and ScriptTabs[activeTab].name
+		or  "Saved Script"
+	local currentContent = ScriptBox.Text
+
+	MakePopup(executor.Frame, "Save to ScriptsHub", {
+		{name = "Name", placeholder = "Script name...", default = defaultName, multiline = false},
+	}, function(values)
+		local newName = SanitizeName((values[1] or ""):match("^%s*(.-)%s*$"))
+		if newName == "" then newName = defaultName end
+		local base, n = newName, 1
+		while HubEntries[newName] do
+			newName = base .. " (" .. n .. ")"
+			n += 1
+		end
+		AddHubEntry(newName, currentContent)
+	end)
+end)
+
+-- ── Search ────────────────────────────────────────────────────────────────────
+SearchBar:GetPropertyChangedSignal("Text"):Connect(function()
+	searchQuery = SearchBar.Text
+	RefreshVisibility()
+end)
+
+-- ── Boot: load existing hub scripts ──────────────────────────────────────────
+local function BootHub()
+	local ok, files = pcall(listfiles, HUB_DIR)
+	if not ok or not files then return end
+	table.sort(files)
+	for _, path in ipairs(files) do
+		local fileName = path:match("([^/\\]+)%.lua$")
+		if fileName then
+			AddHubEntry(fileName, LoadHubScript(fileName))
+		end
+	end
+end
+
+BootHub()
