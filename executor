@@ -137,12 +137,16 @@ ScriptBox.Text = ""
 ScriptBox.TextEditable = true
 ScriptBox.CursorPosition = -1
 
+local ScriptPadding = Instance.new("UIPadding", ScriptBox)
+ScriptPadding.PaddingRight = UDim.new(0, 30)
+ScriptPadding.PaddingBottom = UDim.new(0, 30)
+
 local function UpdateScriptBoxSize()
 	if ScriptBox:IsFocused() then return end
 	local tx, ty = ScriptBox.TextBounds.X, ScriptBox.TextBounds.Y
 	local sx, sy = Source.AbsoluteSize.X, Source.AbsoluteSize.Y
-	local newX = math.max(0, tx - sx + 6)
-	local newY = math.max(0, ty - sy + 6)
+	local newX = math.max(0, tx - sx + 30)
+	--local newY = math.max(0, ty - sy + 30)
 	ScriptBox.Size = UDim2.new(1, newX, 1, 0)
 end
 
@@ -168,6 +172,7 @@ LineNumbers.Text = "1"
 
 local TextPadding = Instance.new("UIPadding", LineNumbers)
 TextPadding.PaddingRight = UDim.new(0, 2)
+TextPadding.PaddingBottom = UDim.new(0, 30)
 
 local function UpdateLines()
 	local count = 1
@@ -652,6 +657,9 @@ local function MakePopup(parent, title, fields, onConfirm)
 	backdrop.BackgroundTransparency = 0.4
 	backdrop.BorderSizePixel = 0
 	backdrop.ZIndex = 20
+	
+	local frameCorner = Instance.new("UICorner", backdrop)
+	frameCorner.CornerRadius = UDim.new(0, 8)
 
 	local POPUP_W = 220
 	local FIELD_H = 24
@@ -917,7 +925,7 @@ local function MakeHubButton(parent, text, bgCol)
 	b.TextColor3 = Color3.fromRGB(220, 220, 220)
 	b.TextSize = 13
 	b.Font = Enum.Font.GothamBold
-	b.AutoButtonColor = false
+	b.AutoButtonColor = true
 	local c = Instance.new("UICorner", b)
 	c.CornerRadius = UDim.new(1, 0)
 	return b
