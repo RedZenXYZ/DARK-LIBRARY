@@ -623,8 +623,11 @@ local function RenameHubFile(oldName, newName)
 	end
 end
 
--- favourites stored as newline-separated names in a single file
+-- favourites and auto-execute stored as newline-separated names
 local Favourites = {}
+local AutoExec   = {}
+
+local AUTOEXEC_FILE = SAVE_DIR .. "/autoexec.txt"
 
 local function LoadFavourites()
 	local ok, raw = pcall(readfile, FAV_FILE)
@@ -636,13 +639,26 @@ end
 
 local function SaveFavourites()
 	local lines = {}
-	for name in pairs(Favourites) do
-		table.insert(lines, name)
-	end
+	for name in pairs(Favourites) do table.insert(lines, name) end
 	pcall(writefile, FAV_FILE, table.concat(lines, "\n"))
 end
 
+local function LoadAutoExec()
+	local ok, raw = pcall(readfile, AUTOEXEC_FILE)
+	if not ok then return end
+	for line in raw:gmatch("[^\n]+") do
+		AutoExec[line:match("^%s*(.-)%s*$")] = true
+	end
+end
+
+local function SaveAutoExec()
+	local lines = {}
+	for name in pairs(AutoExec) do table.insert(lines, name) end
+	pcall(writefile, AUTOEXEC_FILE, table.concat(lines, "\n"))
+end
+
 LoadFavourites()
+LoadAutoExec()
 
 -- ── Shared popup helper ───────────────────────────────────────────────────────
 -- Creates a modal popup with text fields and confirm/cancel buttons.
@@ -975,8 +991,8 @@ local function AddHubEntry(name, content)
 	local rowCorner = Instance.new("UICorner", row)
 	rowCorner.CornerRadius = UDim.new(0, 8)
 
-	-- 4 buttons now: exec, fav, import, delete
-	local NAME_RIGHT_PAD = BTN_W * 4 - 12
+	-- 5 buttons: exec, fav, import, autoexec, delete
+	local NAME_RIGHT_PAD = BTN_W * 5
 
 	-- name label (left side)
 	local nameLabel = Instance.new("TextButton", row)
@@ -1007,11 +1023,11 @@ local function AddHubEntry(name, content)
 	nameBox.ClearTextOnFocus = false
 	nameBox.Visible = false
 
-	-- right-side buttons container (4 buttons × BTN_W + 3 gaps of 4)
+	-- right-side buttons container (5 buttons × BTN_W + 4 gaps of 4)
 	local btnRow = Instance.new("Frame", row)
 	btnRow.AnchorPoint = Vector2.new(1, 0.5)
 	btnRow.Position = UDim2.new(1, -6, 0.5, 0)
-	btnRow.Size = UDim2.new(0, BTN_W * 4 + 12, 0, BTN_W)
+	btnRow.Size = UDim2.new(0, BTN_W * 5 + 16, 0, BTN_W)
 	btnRow.BackgroundTransparency = 1
 
 	local btnLayout = Instance.new("UIListLayout", btnRow)
@@ -1020,18 +1036,31 @@ local function AddHubEntry(name, content)
 	btnLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	btnLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local execBtn   = MakeHubButton(btnRow, "▶", Color3.fromRGB(0, 55, 0))
-	local favBtn    = MakeHubButton(btnRow, Favourites[name] and "★" or "☆", Color3.fromRGB(45, 35, 0))
-	local importBtn = MakeHubButton(btnRow, "↓", Color3.fromRGB(0, 25, 55))
-	local deleteBtn = MakeHubButton(btnRow, "🗑", Color3.fromRGB(55, 0, 0))
-	execBtn.LayoutOrder   = 4
-	favBtn.LayoutOrder    = 3
-	importBtn.LayoutOrder = 2
-	deleteBtn.LayoutOrder = 1
+	local execBtn      = MakeHubButton(btnRow, "▶",  Color3.fromRGB(0, 55, 0))
+	local favBtn       = MakeHubButton(btnRow, Favourites[name] and "★" or "☆", Color3.fromRGB(45, 35, 0))
+	local importBtn    = MakeHubButton(btnRow, "↓",  Color3.fromRGB(0, 25, 55))
+	local autoExecBtn  = MakeHubButton(btnRow, "⚡", Color3.fromRGB(40, 40, 0))
+	local deleteBtn    = MakeHubButton(btnRow, "🗑", Color3.fromRGB(55, 0, 0))
+	execBtn.LayoutOrder     = 5
+	favBtn.LayoutOrder      = 4
+	importBtn.LayoutOrder   = 3
+	autoExecBtn.LayoutOrder = 2
+	deleteBtn.LayoutOrder   = 1
 
 	favBtn.TextColor3 = Favourites[name]
 		and Color3.fromRGB(255, 200, 0)
 		or  Color3.fromRGB(140, 140, 140)
+
+	-- auto-exec button visual state — uses name upvalue safely
+	local function RefreshAutoExecBtn()
+		if AutoExec[name] then
+			autoExecBtn.BackgroundColor3 = Color3.fromRGB(90, 80, 0)
+			autoExecBtn.TextColor3 = Color3.fromRGB(255, 230, 0)
+		else
+			autoExecBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 0)
+			autoExecBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
+		end
+	end
 
 	local entry = {
 		name      = name,
@@ -1041,21 +1070,25 @@ local function AddHubEntry(name, content)
 		favBtn    = favBtn,
 	}
 
+	RefreshAutoExecBtn()
+
 	-- ── delete (two clicks, auto-disarms after 2s) ────────────────────────────
 	local pendingDelete = false
 	deleteBtn.MouseButton1Click:Connect(function()
 		if pendingDelete then
-			-- second click — remove entry
 			if Favourites[entry.name] then
 				Favourites[entry.name] = nil
 				SaveFavourites()
+			end
+			if AutoExec[entry.name] then
+				AutoExec[entry.name] = nil
+				SaveAutoExec()
 			end
 			DeleteHubScript(entry.name)
 			HubEntries[entry.name] = nil
 			row:Destroy()
 			RefreshVisibility()
 		else
-			-- first click — arm, turn red
 			pendingDelete = true
 			deleteBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
 			deleteBtn.BackgroundTransparency = 0.2
@@ -1069,6 +1102,17 @@ local function AddHubEntry(name, content)
 		end
 	end)
 	HubEntries[name] = entry
+
+	-- ── auto-execute toggle ───────────────────────────────────────────────────
+	autoExecBtn.MouseButton1Click:Connect(function()
+		if AutoExec[entry.name] then
+			AutoExec[entry.name] = nil
+		else
+			AutoExec[entry.name] = true
+		end
+		SaveAutoExec()
+		RefreshAutoExecBtn()
+	end)
 
 	-- ── double-click to rename ────────────────────────────────────────────────
 	local lastClick = 0
@@ -1194,6 +1238,18 @@ local function BootHub()
 		local fileName = path:match("([^/\\]+)%.lua$")
 		if fileName then
 			AddHubEntry(fileName, LoadHubScript(fileName))
+		end
+	end
+	-- run auto-execute scripts after all entries are loaded
+	for name in pairs(AutoExec) do
+		if HubEntries[name] then
+			local src = LoadHubScript(name)
+			local fn, err = loadstring(src)
+			if fn then
+				pcall(fn)
+			else
+				warn("AutoExec Error [" .. name .. "]:", err)
+			end
 		end
 	end
 end
