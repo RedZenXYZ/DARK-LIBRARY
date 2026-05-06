@@ -7,7 +7,7 @@ A dark-themed Roblox UI library for building in-game script hub interfaces. Feat
 ## Getting Started
 
 ```lua
-local Dark = loadstring(game:HttpGet("YOUR_RAW_URL_HERE"))()
+local Dark = loadstring(game:HttpGet("https://raw.githubusercontent.com/RedZenXYZ/DARK-LIBRARY/refs/heads/main/source.lua"))()
 local Lib = Dark.CreateLib()
 ```
 
