@@ -1093,9 +1093,9 @@ function Dark.CreateLib()
 		Lib:SetBackground(unpack(jsondecode(content)))
 	end
 	
-	getgenv().DARK_EXECUTOR_LIB = Lib
+	getgenv().DARK_LIB = Lib
 	return Lib
 end
 
-getgenv().DARK_EXECUTOR = Dark
+getgenv().DARK = Dark
 return Dark
