@@ -67,28 +67,116 @@ function Dark.CreateLib()
 	OpenButton.BackgroundTransparency = 0.4
 	OpenButton.BackgroundColor3 = Color3.fromRGB(0, 0, 10)
 	OpenButton.Text = ""
-	OpenButton.MouseButton1Click:Connect(function()
-		if tween ~= nil then return end
-		if Frame.Visible then
-			tween = TweenService:Create(Frame, TweenInfo.new(0.25), {Size = UDim2.new(0.5, 0, 0, 0)})
-			tween:Play()
-			tween.Completed:Connect(function()
-				tween = nil
-				Frame.Visible = false
-			end)
-		else
-			Frame.Visible = true
-			tween = TweenService:Create(Frame, TweenInfo.new(0.5), {Size = UDim2.new(0.5, 0, 0.65, 0)})
-			tween:Play()
-			tween.Completed:Connect(function()
-				tween = nil
-			end)
-		end
-	end)
 
 	local btnCorner = Instance.new("UICorner", OpenButton)
 	btnCorner.CornerRadius = UDim.new(1, 0)
-
+	
+	-- CmdBar (shown on double-click of OpenButton)
+	local CmdBar = Instance.new("TextBox", MoreExecutor)
+	CmdBar.Name = "CmdBar"
+	CmdBar.Size = UDim2.new(0, 0, 1, 0)           -- starts collapsed (width = 0)
+	CmdBar.Position = UDim2.new(1, 6, 0, 0)        -- sits right of OpenButton
+	CmdBar.AnchorPoint = Vector2.new(0, 0)
+	CmdBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	CmdBar.BackgroundTransparency = 0.45
+	CmdBar.PlaceholderText = "Execute..."
+	CmdBar.PlaceholderColor3 = Color3.fromRGB(120, 120, 125)
+	CmdBar.Text = ""
+	CmdBar.TextColor3 = Color3.fromRGB(220, 220, 225)
+	CmdBar.TextSize = 13
+	CmdBar.TextXAlignment = Enum.TextXAlignment.Left
+	CmdBar.Font = Enum.Font.Gotham
+	CmdBar.ClearTextOnFocus = false
+	CmdBar.ClipsDescendants = true
+	CmdBar.Visible = false
+	
+	local cmdCorner = Instance.new("UICorner", CmdBar)
+	cmdCorner.CornerRadius = UDim.new(0, 8)
+	
+	local cmdPad = Instance.new("UIPadding", CmdBar)
+	cmdPad.PaddingLeft = UDim.new(0, 8)
+	cmdPad.PaddingRight = UDim.new(0, 8)
+	
+	local lastClick = 0
+	local cmdBarOpen = false
+	local cmdTween = nil
+	local singleClickTask = nil
+	
+	OpenButton.MouseButton1Click:Connect(function()
+	    local now = tick()
+	    if now - lastClick < 0.35 then
+	        -- Double-click: cancel pending single-click, toggle cmdbar
+	        lastClick = 0
+	        if singleClickTask then
+	            task.cancel(singleClickTask)
+	            singleClickTask = nil
+	        end
+	        if cmdTween then cmdTween:Cancel() end
+	        if cmdBarOpen then
+	            cmdBarOpen = false
+	            cmdTween = TweenService:Create(CmdBar, TWEEN_MEDIUM, {Size = UDim2.new(0, 0, 1, 0)})
+	            cmdTween:Play()
+	            cmdTween.Completed:Connect(function()
+	                CmdBar.Visible = false
+	                cmdTween = nil
+	            end)
+	        else
+	            cmdBarOpen = true
+	            CmdBar.Visible = true
+	            cmdTween = TweenService:Create(CmdBar, TWEEN_MEDIUM, {Size = UDim2.new(0, 200, 1, 0)})
+	            cmdTween:Play()
+	            cmdTween.Completed:Connect(function()
+	                CmdBar:CaptureFocus()
+	                cmdTween = nil
+	            end)
+	        end
+	    else
+	        lastClick = now
+	        -- Delay single-click so double-click can cancel it
+	        singleClickTask = task.delay(0.35, function()
+	            singleClickTask = nil
+	            if tween ~= nil then return end
+	            if Frame.Visible then
+	                tween = TweenService:Create(Frame, TweenInfo.new(0.25), {Size = UDim2.new(0.5, 0, 0, 0)})
+	                tween:Play()
+	                tween.Completed:Connect(function()
+	                    tween = nil
+	                    Frame.Visible = false
+	                end)
+	            else
+	                Frame.Visible = true
+	                tween = TweenService:Create(Frame, TweenInfo.new(0.5), {Size = UDim2.new(0.5, 0, 0.65, 0)})
+	                tween:Play()
+	                tween.Completed:Connect(function()
+	                    tween = nil
+	                end)
+	            end
+	        end)
+	    end
+	end)
+	
+	-- Execute on Enter
+	CmdBar.FocusLost:Connect(function(enterPressed)
+	    if enterPressed and CmdBar.Text ~= "" then
+	        if getgenv().execCmd then
+	            execCmd(CmdBar.Text, game:GetService("Players").LocalPlayer)
+	        else
+	            warn("[CmdBar] Missing Infinite Yield Commands...")
+	        end
+	        CmdBar.Text = ""
+	    end
+		if cmdTween then cmdTween:Cancel() end
+		if cmdBarOpen then
+            cmdBarOpen = false
+            cmdTween = TweenService:Create(CmdBar, TWEEN_MEDIUM, {Size = UDim2.new(0, 0, 1, 0)})
+            cmdTween:Play()
+            cmdTween.Completed:Connect(function()
+                CmdBar.Visible = false
+                cmdTween = nil
+            end)
+		end
+	end)
+	
 	Label.Name = "Icon"
 	Label.Image = "https://www.roblox.com/asset-thumbnail/image?assetId=16149179369&width=420&height=420&format=png"
 	Label.Size = UDim2.new(0, 24, 0, 24)
@@ -642,113 +730,113 @@ function Dark.CreateLib()
 		--   info     – subtitle (can be nil)
 		--   min      – minimum value  (default 0)
 		--   max      – maximum value  (default 100)
-		--   default  – starting value (default min)
+		--   step     – increment amount (default 1)
 		--   callback – called with (number) on change
-		function Tab:AddSlider(name, info, min, max, default, callback)
-			min     = min     or 0
-			max     = max     or 100
-			default = default or min
-
-			local rowH = info and 62 or 52
-			local row = MakeRow(ContentParent, rowH)
-			row.LayoutOrder = nextOrder()
-			row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
-			row.BackgroundTransparency = 0.3
-
-			local rowCorner = Instance.new("UICorner", row)
-			rowCorner.CornerRadius = UDim.new(0, 10)
-
-			MakeLabel(row, name, info)
-
-			-- Value readout
-			local valLabel = Instance.new("TextLabel", row)
-			valLabel.Size = UDim2.new(0, 36, 0, 16)
-			valLabel.AnchorPoint = Vector2.new(1, 0)
-			valLabel.Position = UDim2.new(1, -10, 0, 6)
-			valLabel.BackgroundTransparency = 1
-			valLabel.Text = tostring(default)
-			valLabel.TextColor3 = Color3.fromRGB(180, 180, 185)
-			valLabel.TextSize = 11
-			valLabel.Font = Enum.Font.GothamMedium
-			valLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-			-- Track bar
-			local trackBar = Instance.new("Frame", row)
-			trackBar.Name = "SliderTrack"
-			trackBar.Size = UDim2.new(1, -20, 0, 6)
-			trackBar.Position = UDim2.new(0, 10, 1, -14)
-			trackBar.AnchorPoint = Vector2.new(0, 1)
-			trackBar.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
-
-			local trackC = Instance.new("UICorner", trackBar)
-			trackC.CornerRadius = UDim.new(1, 0)
-
-			-- Fill
-			local fill = Instance.new("Frame", trackBar)
-			fill.Name = "Fill"
-			fill.Size = UDim2.new(0, 0, 1, 0)
-			fill.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
-			fill.ClipsDescendants = false
-
-			local fillC = Instance.new("UICorner", fill)
-			fillC.CornerRadius = UDim.new(1, 0)
-
-			-- Knob
-			local knob = Instance.new("Frame", trackBar)
-			knob.Name = "Knob"
-			knob.Size = UDim2.new(0, 14, 0, 14)
-			knob.AnchorPoint = Vector2.new(0.5, 0.5)
-			knob.Position = UDim2.new(0, 0, 0.5, 0)
-			knob.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
-
-			local knobC = Instance.new("UICorner", knob)
-			knobC.CornerRadius = UDim.new(1, 0)
-
-			local currentValue = default
-			local function SetValue(v)
-				v = math.clamp(math.round(v), min, max)
-				currentValue = v
-				local t = (v - min) / (max - min)
-				fill.Size = UDim2.new(t, 0, 1, 0)
-				knob.Position = UDim2.new(t, 0, 0.5, 0)
-				valLabel.Text = tostring(v)
-				if callback then callback(v) end
-			end
-			SetValue(default)
-
-			-- Drag interaction
-			local sliderDragging = false
-			local function CalcValue(inputX)
-				local absSize = trackBar.AbsoluteSize.X
-				local relX = inputX - trackBar.AbsolutePosition.X
-				local t = math.clamp(relX / absSize, 0, 1)
-				return min + t * (max - min)
-			end
-
-			trackBar.InputBegan:Connect(function(inp)
-				if inp.UserInputType == Enum.UserInputType.MouseButton1
-					or inp.UserInputType == Enum.UserInputType.Touch then
-					sliderDragging = true
-					SetValue(CalcValue(inp.Position.X))
-				end
-			end)
-			UserInputService.InputChanged:Connect(function(inp)
-				if sliderDragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
-					or inp.UserInputType == Enum.UserInputType.Touch) then
-					SetValue(CalcValue(inp.Position.X))
-				end
-			end)
-			UserInputService.InputEnded:Connect(function(inp)
-				if inp.UserInputType == Enum.UserInputType.MouseButton1
-					or inp.UserInputType == Enum.UserInputType.Touch then
-					sliderDragging = false
-				end
-			end)
-
-			local SliderFunction = {}
-			function SliderFunction:SetValue(v)  SetValue(v) end
-			function SliderFunction:GetValue()   return currentValue end
-			return SliderFunction
+		function Tab:AddSlider(name, info, min, max, step, callback)
+		    min  = min  or 0
+		    max  = max  or 100
+		    step = step or 1
+		
+		    local rowH = info and 62 or 52
+		    local row = MakeRow(ContentParent, rowH)
+		    row.LayoutOrder = nextOrder()
+		    row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
+		    row.BackgroundTransparency = 0.3
+		
+		    local rowCorner = Instance.new("UICorner", row)
+		    rowCorner.CornerRadius = UDim.new(0, 10)
+		
+		    MakeLabel(row, name, info)
+		
+		    -- Value readout
+		    local valLabel = Instance.new("TextLabel", row)
+		    valLabel.Size = UDim2.new(0, 36, 0, 16)
+		    valLabel.AnchorPoint = Vector2.new(1, 0)
+		    valLabel.Position = UDim2.new(1, -10, 0, 6)
+		    valLabel.BackgroundTransparency = 1
+		    valLabel.Text = tostring(min)
+		    valLabel.TextColor3 = Color3.fromRGB(180, 180, 185)
+		    valLabel.TextSize = 11
+		    valLabel.Font = Enum.Font.GothamMedium
+		    valLabel.TextXAlignment = Enum.TextXAlignment.Right
+		
+		    -- Track bar
+		    local trackBar = Instance.new("Frame", row)
+		    trackBar.Name = "SliderTrack"
+		    trackBar.Size = UDim2.new(1, -20, 0, 6)
+		    trackBar.Position = UDim2.new(0, 10, 1, -14)
+		    trackBar.AnchorPoint = Vector2.new(0, 1)
+		    trackBar.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+		
+		    local trackC = Instance.new("UICorner", trackBar)
+		    trackC.CornerRadius = UDim.new(1, 0)
+		
+		    -- Fill
+		    local fill = Instance.new("Frame", trackBar)
+		    fill.Name = "Fill"
+		    fill.Size = UDim2.new(0, 0, 1, 0)
+		    fill.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
+		    fill.ClipsDescendants = false
+		
+		    local fillC = Instance.new("UICorner", fill)
+		    fillC.CornerRadius = UDim.new(1, 0)
+		
+		    -- Knob
+		    local knob = Instance.new("Frame", trackBar)
+		    knob.Name = "Knob"
+		    knob.Size = UDim2.new(0, 14, 0, 14)
+		    knob.AnchorPoint = Vector2.new(0.5, 0.5)
+		    knob.Position = UDim2.new(0, 0, 0.5, 0)
+		    knob.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
+		
+		    local knobC = Instance.new("UICorner", knob)
+		    knobC.CornerRadius = UDim.new(1, 0)
+		
+		    local currentValue = min
+		    local function SetValue(v)
+		        v = math.clamp(math.round(v / step) * step, min, max)
+		        currentValue = v
+		        local t = (v - min) / (max - min)
+		        fill.Size = UDim2.new(t, 0, 1, 0)
+		        knob.Position = UDim2.new(t, 0, 0.5, 0)
+		        valLabel.Text = tostring(v)
+		        if callback then callback(v) end
+		    end
+		    SetValue(min)
+		
+		    -- Drag interaction
+		    local sliderDragging = false
+		    local function CalcValue(inputX)
+		        local absSize = trackBar.AbsoluteSize.X
+		        local relX = inputX - trackBar.AbsolutePosition.X
+		        local t = math.clamp(relX / absSize, 0, 1)
+		        return min + t * (max - min)
+		    end
+		
+		    trackBar.InputBegan:Connect(function(inp)
+		        if inp.UserInputType == Enum.UserInputType.MouseButton1
+		            or inp.UserInputType == Enum.UserInputType.Touch then
+		            sliderDragging = true
+		            SetValue(CalcValue(inp.Position.X))
+		        end
+		    end)
+		    UserInputService.InputChanged:Connect(function(inp)
+		        if sliderDragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
+		            or inp.UserInputType == Enum.UserInputType.Touch) then
+		            SetValue(CalcValue(inp.Position.X))
+		        end
+		    end)
+		    UserInputService.InputEnded:Connect(function(inp)
+		        if inp.UserInputType == Enum.UserInputType.MouseButton1
+		            or inp.UserInputType == Enum.UserInputType.Touch then
+		            sliderDragging = false
+		        end
+		    end)
+		
+		    local SliderFunction = {}
+		    function SliderFunction:SetValue(v) SetValue(v) end
+		    function SliderFunction:GetValue()  return currentValue end
+		    return SliderFunction
 		end
 
 		-- ── AddDropdown ───────────────────────────────────────────────────
