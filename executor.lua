@@ -1,4 +1,4 @@
-local Dark = loadstring(game:HttpGet("https://raw.githubusercontent.com/RedZenXYZ/DARK-EXECUTOR/refs/heads/main/source"))()
+local Dark = loadstring(game:HttpGet("https://raw.githubusercontent.com/RedZenXYZ/DARK-LIBRARY/refs/heads/main/source.lua"))()
 
 local Lib = Dark.CreateLib()
 local executor = Lib:AddTab("EXECUTOR", nil, "full")
