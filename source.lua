@@ -31,8 +31,8 @@ local TRAN_TAB_SEL     = 0.35
 
 local Dark = {}
 function Dark.CreateLib()
-	if DARK_EXECUTOR_LIB then
-		return DARK_EXECUTOR_LIB
+	if DARK_LIB then
+		return DARK_LIB
 	end
 	local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
 	local Frame = Instance.new("Frame", ScreenGui)
