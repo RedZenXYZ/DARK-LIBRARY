@@ -649,7 +649,6 @@ function Dark.CreateLib()
 
 			local ButtonFunction = {}
 			function ButtonFunction:UpdateButton(newTitle)
-				btn.Text = tostring(newTitle)
 				titleLbl.Text = tostring(newTitle)
 			end
 			return ButtonFunction
