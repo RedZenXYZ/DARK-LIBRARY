@@ -1,6 +1,6 @@
 -- Singleton cache: re-executing returns the existing Dark/Lib
-if DARK_EXECUTOR then
-	return DARK_EXECUTOR
+if DARK then
+	return DARK
 end
 
 -- ── Save Config ──--
@@ -841,12 +841,20 @@ function Dark.CreateLib()
 		-- ── AddDropdown ───────────────────────────────────────────────────
 		--   name     – label
 		--   info     – subtitle (can be nil)
-		--   options  – array of strings  e.g. {"Apple","Banana","Cherry"}
-		--   callback – called with (selectedString) on change
-		function Tab:AddDropdown(name, info, options, callback)
+		--   options  – array of any values
+		--   mode     – "single" (default) or "multiple"
+		--             if a function is passed, defaults to "single"
+		--   callback – single: (value)  |  multiple: (selectedList)
+		function Tab:AddDropdown(name, info, options, mode, callback)
 			options = options or {}
+			if type(mode) == "function" then
+				callback = mode
+				mode = "single"
+			end
+			local isMulti = mode == "multiple"
+			local itemH   = 28
 			local closedH = 38
-			local openedH = closedH + math.min(#options, 5) * 28 + 4
+			local openedH = closedH + math.min(#options, 5) * itemH + 4
 
 			local row = MakeRow(ContentParent, closedH)
 			row.LayoutOrder = nextOrder()
@@ -859,37 +867,40 @@ function Dark.CreateLib()
 
 			MakeLabel(row, name, info)
 
-			-- Selected display
 			local selLabel = Instance.new("TextLabel", row)
-			selLabel.Size = UDim2.new(0, 100, 0, 22)
+			selLabel.Size = UDim2.new(0, 80, 0, 22)
 			selLabel.AnchorPoint = Vector2.new(1, 0.5)
-			selLabel.Position = UDim2.new(1, -30, 0, 20)
+			selLabel.Position = UDim2.new(1, -30, 0.5, 0)
 			selLabel.BackgroundTransparency = 1
-			selLabel.Text = options[1] or "None"
-			selLabel.TextColor3 = Color3.fromRGB(200, 200, 205)
-			selLabel.TextSize = 12
-			selLabel.Font = Enum.Font.GothamMedium
+			selLabel.Text = "None"
+			selLabel.TextColor3 = Color3.fromRGB(160, 160, 165)
+			selLabel.TextSize = 11
+			selLabel.Font = Enum.Font.Gotham
 			selLabel.TextXAlignment = Enum.TextXAlignment.Right
 			selLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
-			-- Arrow
-			local arrow = Instance.new("TextLabel", row)
-			arrow.Size = UDim2.new(0, 16, 0, 16)
+			local arrow = Instance.new("TextButton", row)
+			arrow.Size = UDim2.new(0, 26, 0, 26)
 			arrow.AnchorPoint = Vector2.new(1, 0.5)
-			arrow.Position = UDim2.new(1, -10, 0, 20)
+			arrow.Position = UDim2.new(1, -6, 0.5, 0)
 			arrow.BackgroundTransparency = 1
 			arrow.Text = "▾"
 			arrow.TextColor3 = Color3.fromRGB(160, 160, 165)
 			arrow.TextSize = 14
 			arrow.Font = Enum.Font.GothamBold
+			arrow.ZIndex = 6
+			arrow.AutoButtonColor = false
 
-			-- Drop list
-			local list = Instance.new("Frame", row)
+			local list = Instance.new("ScrollingFrame", row)
 			list.Name = "DropList"
-			list.Size = UDim2.new(1, -20, 0, math.min(#options, 5) * 28)
+			list.Size = UDim2.new(1, -20, 0, math.min(#options, 5) * itemH)
 			list.Position = UDim2.new(0, 10, 0, closedH + 2)
-			list.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+			list.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 			list.BackgroundTransparency = 0
+			list.ScrollBarThickness = 2
+			list.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+			list.CanvasSize = UDim2.new(0, 0, 0, 0)
+			list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 			list.ClipsDescendants = true
 			list.Visible = false
 
@@ -900,15 +911,46 @@ function Dark.CreateLib()
 			listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 			listLayout.Padding = UDim.new(0, 0)
 
-			local selectedVal = options[1]
+			local selectedVal  = nil
+			local selectedList = {}
 			local isOpen = false
+			local optionSetters = {}
 
-			for i, opt in ipairs(options) do
+			local function UpdateSelLabel()
+				if isMulti then
+					if #selectedList == 0 then
+						selLabel.Text = "None"
+					elseif #selectedList == 1 then
+						selLabel.Text = tostring(selectedList[1])
+					else
+						selLabel.Text = #selectedList .. " selected"
+					end
+				else
+					selLabel.Text = selectedVal ~= nil and tostring(selectedVal) or "None"
+				end
+			end
+
+			local function OpenDropdown()
+				isOpen = true
+				list.Visible = true
+				arrow.Text = "▴"
+				TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, openedH)}):Play()
+			end
+
+			local function CloseDropdown()
+				isOpen = false
+				arrow.Text = "▾"
+				TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, closedH)}):Play()
+				task.delay(TWEEN_MEDIUM.Time, function() list.Visible = false end)
+			end
+
+			local function MakeOptionButton(i, opt)
 				local optBtn = Instance.new("TextButton", list)
 				optBtn.LayoutOrder = i
-				optBtn.Size = UDim2.new(1, 0, 0, 28)
+				optBtn.Size = UDim2.new(1, 0, 0, itemH)
+				optBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 				optBtn.BackgroundTransparency = 1
-				optBtn.Text = opt
+				optBtn.Text = tostring(opt)
 				optBtn.TextColor3 = Color3.fromRGB(200, 200, 205)
 				optBtn.TextSize = 12
 				optBtn.Font = Enum.Font.Gotham
@@ -916,78 +958,103 @@ function Dark.CreateLib()
 				optBtn.AutoButtonColor = false
 
 				local optPad = Instance.new("UIPadding", optBtn)
-				optPad.PaddingLeft = UDim.new(0, 8)
+				optPad.PaddingLeft = UDim.new(0, isMulti and 28 or 10)
+
+				local check = Instance.new("TextLabel", optBtn)
+				check.Size = UDim2.new(0, 18, 1, 0)
+				check.Position = UDim2.new(0, 6, 0, 0)
+				check.BackgroundTransparency = 1
+				check.Text = ""
+				check.TextColor3 = Color3.fromRGB(100, 180, 255)
+				check.TextSize = 12
+				check.Font = Enum.Font.GothamBold
+				check.Visible = isMulti
+
+				local isSel = false
+
+				local function SetSel(state)
+					isSel = state
+					if isMulti then check.Text = state and "✓" or "" end
+					TweenService:Create(optBtn, TWEEN_FAST, {
+						BackgroundTransparency = state and 0.75 or 1
+					}):Play()
+				end
+
+				optionSetters[opt] = SetSel
 
 				optBtn.MouseEnter:Connect(function()
-					TweenService:Create(optBtn, TWEEN_FAST, {BackgroundTransparency = 0.7}):Play()
-					optBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+					if not isSel then
+						TweenService:Create(optBtn, TWEEN_FAST, {BackgroundTransparency = 0.88}):Play()
+					end
 				end)
 				optBtn.MouseLeave:Connect(function()
-					TweenService:Create(optBtn, TWEEN_FAST, {BackgroundTransparency = 1}):Play()
+					if not isSel then
+						TweenService:Create(optBtn, TWEEN_FAST, {BackgroundTransparency = 1}):Play()
+					end
 				end)
+
 				optBtn.MouseButton1Click:Connect(function()
-					selectedVal = opt
-					selLabel.Text = opt
-					-- Close
-					isOpen = false
-					list.Visible = false
-					arrow.Text = "▾"
-					TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, closedH)}):Play()
-					if callback then callback(opt) end
+					if isMulti then
+						local idx = table.find(selectedList, opt)
+						if idx then
+							table.remove(selectedList, idx)
+							SetSel(false)
+						else
+							table.insert(selectedList, opt)
+							SetSel(true)
+						end
+						UpdateSelLabel()
+						if callback then callback(selectedList) end
+					else
+						if selectedVal ~= nil and optionSetters[selectedVal] then
+							optionSetters[selectedVal](false)
+						end
+						selectedVal = opt
+						SetSel(true)
+						UpdateSelLabel()
+						CloseDropdown()
+						if callback then callback(selectedVal) end
+					end
 				end)
 			end
 
-			-- Toggle open/close
+			for i, opt in ipairs(options) do
+				MakeOptionButton(i, opt)
+			end
+
+			arrow.MouseButton1Click:Connect(function()
+				if isOpen then CloseDropdown() else OpenDropdown() end
+			end)
+
 			local hitBtn = Instance.new("TextButton", row)
 			hitBtn.Size = UDim2.new(1, 0, 0, closedH)
 			hitBtn.BackgroundTransparency = 1
 			hitBtn.Text = ""
 			hitBtn.ZIndex = 5
 			hitBtn.MouseButton1Click:Connect(function()
-				isOpen = not isOpen
-				if isOpen then
-					list.Visible = true
-					arrow.Text = "▴"
-					TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, openedH)}):Play()
-				else
-					arrow.Text = "▾"
-					TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, closedH)}):Play()
-					task.delay(TWEEN_MEDIUM.Time, function() list.Visible = false end)
-				end
+				if isOpen then CloseDropdown() else OpenDropdown() end
 			end)
 
 			local DropFunction = {}
 			function DropFunction:SetOptions(newOpts)
-				-- Clear old option buttons
 				for _, c in list:GetChildren() do
 					if c:IsA("TextButton") then c:Destroy() end
 				end
+				selectedVal  = nil
+				selectedList = {}
+				optionSetters = {}
+				UpdateSelLabel()
 				options = newOpts
+				openedH = closedH + math.min(#options, 5) * itemH + 4
+				list.Size = UDim2.new(1, -20, 0, math.min(#options, 5) * itemH)
 				for i, opt in ipairs(options) do
-					local ob = Instance.new("TextButton", list)
-					ob.LayoutOrder = i
-					ob.Size = UDim2.new(1, 0, 0, 28)
-					ob.BackgroundTransparency = 1
-					ob.Text = opt
-					ob.TextColor3 = Color3.fromRGB(200, 200, 205)
-					ob.TextSize = 12
-					ob.Font = Enum.Font.Gotham
-					ob.TextXAlignment = Enum.TextXAlignment.Left
-					ob.AutoButtonColor = false
-					local p = Instance.new("UIPadding", ob)
-					p.PaddingLeft = UDim.new(0, 8)
-					ob.MouseButton1Click:Connect(function()
-						selectedVal = opt
-						selLabel.Text = opt
-						isOpen = false
-						list.Visible = false
-						arrow.Text = "▾"
-						TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, closedH)}):Play()
-						if callback then callback(opt) end
-					end)
+					MakeOptionButton(i, opt)
 				end
 			end
-			function DropFunction:GetSelected() return selectedVal end
+			function DropFunction:GetSelected()
+				return isMulti and selectedList or selectedVal
+			end
+			function DropFunction:Close() CloseDropdown() end
 			return DropFunction
 		end
 
