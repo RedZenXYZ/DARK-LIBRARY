@@ -866,8 +866,14 @@ function Dark.CreateLib()
 			rowCorner.CornerRadius = UDim.new(0, 10)
 
 			MakeLabel(row, name, info)
-
-			local selLabel = Instance.new("TextLabel", row)
+			
+			local hitBtn = Instance.new("TextButton", row)
+			hitBtn.Size = UDim2.new(1, 0, 0, closedH)
+			hitBtn.BackgroundTransparency = 1
+			hitBtn.Text = ""
+			hitBtn.ZIndex = 5
+			
+			local selLabel = Instance.new("TextLabel", hitBtn)
 			selLabel.Size = UDim2.new(0, 80, 0, 22)
 			selLabel.AnchorPoint = Vector2.new(1, 0.5)
 			selLabel.Position = UDim2.new(1, -30, 0.5, 0)
@@ -879,12 +885,12 @@ function Dark.CreateLib()
 			selLabel.TextXAlignment = Enum.TextXAlignment.Right
 			selLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
-			local arrow = Instance.new("TextButton", row)
+			local arrow = Instance.new("TextButton", hitBtn)
 			arrow.Size = UDim2.new(0, 26, 0, 26)
 			arrow.AnchorPoint = Vector2.new(1, 0.5)
 			arrow.Position = UDim2.new(1, -6, 0.5, 0)
 			arrow.BackgroundTransparency = 1
-			arrow.Text = "▾"
+			arrow.Text = "↓"
 			arrow.TextColor3 = Color3.fromRGB(160, 160, 165)
 			arrow.TextSize = 14
 			arrow.Font = Enum.Font.GothamBold
@@ -933,13 +939,13 @@ function Dark.CreateLib()
 			local function OpenDropdown()
 				isOpen = true
 				list.Visible = true
-				arrow.Text = "▴"
+				arrow.Text = "↑"
 				TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, openedH)}):Play()
 			end
 
 			local function CloseDropdown()
 				isOpen = false
-				arrow.Text = "▾"
+				arrow.Text = "↓"
 				TweenService:Create(row, TWEEN_MEDIUM, {Size = UDim2.new(1, 0, 0, closedH)}):Play()
 				task.delay(TWEEN_MEDIUM.Time, function() list.Visible = false end)
 			end
@@ -962,7 +968,7 @@ function Dark.CreateLib()
 
 				local check = Instance.new("TextLabel", optBtn)
 				check.Size = UDim2.new(0, 18, 1, 0)
-				check.Position = UDim2.new(0, 6, 0, 0)
+				check.AnchorPoint = Vector2.new(1, 0)
 				check.BackgroundTransparency = 1
 				check.Text = ""
 				check.TextColor3 = Color3.fromRGB(100, 180, 255)
@@ -1025,12 +1031,7 @@ function Dark.CreateLib()
 			arrow.MouseButton1Click:Connect(function()
 				if isOpen then CloseDropdown() else OpenDropdown() end
 			end)
-
-			local hitBtn = Instance.new("TextButton", row)
-			hitBtn.Size = UDim2.new(1, 0, 0, closedH)
-			hitBtn.BackgroundTransparency = 1
-			hitBtn.Text = ""
-			hitBtn.ZIndex = 5
+			
 			hitBtn.MouseButton1Click:Connect(function()
 				if isOpen then CloseDropdown() else OpenDropdown() end
 			end)
