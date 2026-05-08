@@ -156,15 +156,16 @@ function Dark.CreateLib()
 	end)
 	
 	-- Execute on Enter
+	local execCmd = execCmd
 	CmdBar.FocusLost:Connect(function(enterPressed)
 	    if enterPressed and CmdBar.Text ~= "" then
-	        if getgenv().execCmd then
+	        if execCmd then
 	            execCmd(CmdBar.Text, game:GetService("Players").LocalPlayer)
 	        else
 	            warn("[CmdBar] Missing Infinite Yield Commands...")
 	        end
-	        CmdBar.Text = ""
 	    end
+		CmdBar.Text = ""
 		if cmdTween then cmdTween:Cancel() end
 		if cmdBarOpen then
             cmdBarOpen = false
@@ -658,7 +659,12 @@ function Dark.CreateLib()
 		--   name     – label
 		--   info     – subtitle (can be nil)
 		--   callback – called with (bool) on change
-		function Tab:AddToggle(name, info, callback)
+		function Tab:AddToggle(name, info, default, callback)
+			if type(default) == "function" then
+				callback = default
+				default = false
+			end
+			default = default ~= nil and default or false
 			local row = MakeRow(ContentParent, 38)
 			row.LayoutOrder = nextOrder()
 			row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
@@ -693,7 +699,7 @@ function Dark.CreateLib()
 			local knobCorner = Instance.new("UICorner", knob)
 			knobCorner.CornerRadius = UDim.new(1, 0)
 
-			local toggled = false
+			local toggled = default
 
 			local function SetToggle(state)
 				toggled = state
@@ -731,10 +737,15 @@ function Dark.CreateLib()
 		--   max      – maximum value  (default 100)
 		--   step     – increment amount (default 1)
 		--   callback – called with (number) on change
-		function Tab:AddSlider(name, info, min, max, step, callback)
+		function Tab:AddSlider(name, info, min, max, step, default, callback)
 		    min  = min  or 0
 		    max  = max  or 100
 		    step = step or 1
+		    if type(default) == "function" then
+		        callback = default
+		        default = min
+		    end
+		    default = (default ~= nil) and default or min
 		
 		    local rowH = info and 62 or 52
 		    local row = MakeRow(ContentParent, rowH)
@@ -801,7 +812,7 @@ function Dark.CreateLib()
 		        valLabel.Text = tostring(v)
 		        if callback then callback(v) end
 		    end
-		    SetValue(min)
+		    SetValue(default)
 		
 		    -- Drag interaction
 		    local sliderDragging = false
@@ -851,7 +862,7 @@ function Dark.CreateLib()
 				callback = mode
 				mode = "single"
 			end
-			local isMulti = mode == "multiple"
+			local isMulti = mode == "multiple" or mode == true
 			local itemH   = 28
 			local closedH = 38
 			local openedH = closedH + math.min(#options, 5) * itemH + 4
