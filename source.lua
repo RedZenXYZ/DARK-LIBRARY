@@ -665,6 +665,15 @@ function Dark.CreateLib()
 				default = false
 			end
 			default = default ~= nil and default or false
+			
+			local toggled = default
+			
+			-- Track pill
+			local trackW, trackH = 44, 24
+			
+			local knobX   = toggled and (trackW - (trackH - 6) - 3) or 3
+			local trackBG = toggled and Color3.fromRGB(100, 180, 255) or Color3.fromRGB(55, 55, 60)
+			
 			local row = MakeRow(ContentParent, 38)
 			row.LayoutOrder = nextOrder()
 			row.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
@@ -675,14 +684,12 @@ function Dark.CreateLib()
 
 			MakeLabel(row, name, info)
 
-			-- Track pill
-			local trackW, trackH = 44, 24
 			local track = Instance.new("Frame", row)
 			track.Name = "Track"
 			track.Size = UDim2.new(0, trackW, 0, trackH)
 			track.AnchorPoint = Vector2.new(1, 0.5)
 			track.Position = UDim2.new(1, -10, 0.5, 0)
-			track.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+			track.BackgroundColor3 = trackBG
 			track.BackgroundTransparency = 0
 
 			local trackCorner = Instance.new("UICorner", track)
@@ -693,13 +700,11 @@ function Dark.CreateLib()
 			knob.Name = "Knob"
 			knob.Size = UDim2.new(0, trackH - 6, 0, trackH - 6)
 			knob.AnchorPoint = Vector2.new(0, 0.5)
-			knob.Position = UDim2.new(0, 3, 0.5, 0)
+			knob.Position = UDim2.new(0, knobX, 0.5, 0)
 			knob.BackgroundColor3 = Color3.fromRGB(200, 200, 205)
 
 			local knobCorner = Instance.new("UICorner", knob)
 			knobCorner.CornerRadius = UDim.new(1, 0)
-
-			local toggled = default
 
 			local function SetToggle(state)
 				toggled = state
