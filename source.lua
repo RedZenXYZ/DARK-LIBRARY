@@ -1057,21 +1057,27 @@ function Dark.CreateLib()
 			end)
 
 			local DropFunction = {}
-			function DropFunction:SelectOption(opt, state)
+			function DropFunction:SelectOption(opts, state)
 			    local newState = state ~= nil and state or true
+			    local optsTable = type(opts) == "table" and opts or {opts}
+			    
 			    if isMulti then
-			        local idx = table.find(selectedList, opt)
-			        if newState and not idx then
-			            table.insert(selectedList, opt)
-			        elseif not newState and idx then
-			            table.remove(selectedList, idx)
+			        for _, opt in ipairs(optsTable) do
+			            local idx = table.find(selectedList, opt)
+			            if newState and not idx then
+			                table.insert(selectedList, opt)
+			            elseif not newState and idx then
+			                table.remove(selectedList, idx)
+			            end
+			            if optionSetters[opt] then optionSetters[opt](newState) end
 			        end
-			        if optionSetters[opt] then optionSetters[opt](newState) end
 			        if callback then callback(selectedList) end
 			    else
+			        -- single mode: only last opt in table wins
 			        if selectedVal ~= nil and optionSetters[selectedVal] then
 			            optionSetters[selectedVal](false)
 			        end
+			        local opt = optsTable[#optsTable]
 			        if newState then
 			            selectedVal = opt
 			            if optionSetters[opt] then optionSetters[opt](true) end
