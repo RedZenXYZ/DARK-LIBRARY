@@ -321,6 +321,7 @@ function Dark.CreateLib()
 	UIPadding.PaddingTop = UDim.new(0, 4)
 	UIPadding.PaddingLeft = UDim.new(0, 4)
 	UIPadding.PaddingRight = UDim.new(0, 4)
+	UIPadding.PaddingBottom = UDim.new(0, 4)
 
 	-- ── Sidebar collapse button ──────────────────────────────────────────────
 	local scrolltween = nil
@@ -652,6 +653,7 @@ function Dark.CreateLib()
 			function ButtonFunction:UpdateButton(newTitle)
 				titleLbl.Text = tostring(newTitle)
 			end
+			function ButtonFunction:Remove() row:Destroy() end
 			return ButtonFunction
 		end
 
@@ -732,6 +734,7 @@ function Dark.CreateLib()
 			function ToggleFunction:GetValue()
 				return toggled
 			end
+			function ToggleFunction:Remove() row:Destroy() end
 			return ToggleFunction
 		end
 
@@ -851,6 +854,7 @@ function Dark.CreateLib()
 		    local SliderFunction = {}
 		    function SliderFunction:SetValue(v) SetValue(v) end
 		    function SliderFunction:GetValue()  return currentValue end
+			function SliderFunction:Remove() row:Destroy() end
 		    return SliderFunction
 		end
 
@@ -919,7 +923,7 @@ function Dark.CreateLib()
 			list.Position = UDim2.new(0, 10, 0, closedH + 2)
 			list.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 			list.BackgroundTransparency = 0
-			list.ScrollBarThickness = 2
+			list.ScrollBarThickness = 0
 			list.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
 			list.CanvasSize = UDim2.new(0, 0, 0, 0)
 			list.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -972,6 +976,7 @@ function Dark.CreateLib()
 				optBtn.Size = UDim2.new(1, 0, 0, itemH)
 				optBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 				optBtn.BackgroundTransparency = 1
+				optBtn.BorderSizePixel = 0
 				optBtn.Text = tostring(opt)
 				optBtn.TextColor3 = Color3.fromRGB(200, 200, 205)
 				optBtn.TextSize = 12
@@ -1000,6 +1005,7 @@ function Dark.CreateLib()
 					TweenService:Create(optBtn, TWEEN_FAST, {
 						BackgroundTransparency = state and 0.75 or 1
 					}):Play()
+					UpdateSelLabel()
 				end
 
 				optionSetters[opt] = SetSel
@@ -1025,7 +1031,6 @@ function Dark.CreateLib()
 							table.insert(selectedList, opt)
 							SetSel(true)
 						end
-						UpdateSelLabel()
 						if callback then callback(selectedList) end
 					else
 						if selectedVal ~= nil and optionSetters[selectedVal] then
@@ -1033,7 +1038,6 @@ function Dark.CreateLib()
 						end
 						selectedVal = opt
 						SetSel(true)
-						UpdateSelLabel()
 						CloseDropdown()
 						if callback then callback(selectedVal) end
 					end
@@ -1053,6 +1057,42 @@ function Dark.CreateLib()
 			end)
 
 			local DropFunction = {}
+			function DropFunction:SelectOption(opt, state)
+			    local newState = state ~= nil and state or true
+			    if isMulti then
+			        local idx = table.find(selectedList, opt)
+			        if newState and not idx then
+			            table.insert(selectedList, opt)
+			        elseif not newState and idx then
+			            table.remove(selectedList, idx)
+			        end
+			        if optionSetters[opt] then optionSetters[opt](newState) end
+			        if callback then callback(selectedList) end
+			    else
+			        if selectedVal ~= nil and optionSetters[selectedVal] then
+			            optionSetters[selectedVal](false)
+			        end
+			        if newState then
+			            selectedVal = opt
+			            if optionSetters[opt] then optionSetters[opt](true) end
+			            if callback then callback(selectedVal) end
+			        else
+			            selectedVal = nil
+			            UpdateSelLabel()
+			        end
+			    end
+			end
+			function DropFunction:UpdateOptions(newOpts)
+				for i, opt in ipairs(newOpts) do
+					if not table.find(options, opt) then
+						table.insert(options, opt)
+						MakeOptionButton(#options + 1, opt)
+					end
+				end
+				openedH = closedH + math.min(#options, 5) * itemH + 4
+				list.Size = UDim2.new(1, -20, 0, math.min(#options, 5) * itemH)
+			end
+			
 			function DropFunction:SetOptions(newOpts)
 				for _, c in list:GetChildren() do
 					if c:IsA("TextButton") then c:Destroy() end
