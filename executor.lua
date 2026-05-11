@@ -34,6 +34,10 @@ local function RenameTabFile(oldName, newName)
 	end
 end
 
+-- ── Entry helpers ─────────────────────────────────────────────────────────────
+local HubEntries = {}  -- [name] = { name, row, nameLabel, nameBox, favBtn }
+local searchQuery = ""
+
 -- ── Tab bar (script tabs row above the editor) ────────────────────────────────
 local TAB_H = 28  -- height of the tab bar
 
@@ -938,10 +942,6 @@ end
 -- layout order: favs = 1..499, divider at 0 and 500, all scripts = 501..999
 local FavDivider = MakeDivider("★  Favourites", 0,   true)
 local AllDivider = MakeDivider("All Scripts",   500, false)
-
--- ── Entry helpers ─────────────────────────────────────────────────────────────
-local HubEntries = {}  -- [name] = { name, row, nameLabel, nameBox, favBtn }
-local searchQuery = ""
 
 local function MakeHubButton(parent, text, bgCol)
 	local b = Instance.new("TextButton", parent)
