@@ -623,11 +623,11 @@ local function RenameHubFile(oldName, newName)
 	end
 end
 
--- favourites and auto-execute stored as newline-separated names
+-- favourites stored as newline-separated names in a single file
 local Favourites = {}
-local AutoExec   = {}
 
-local AUTOEXEC_FILE = SAVE_DIR .. "/autoexec.txt"
+local ORDER_FILE = SAVE_DIR .. "/hub_order.txt"
+local HubOrder   = {}  -- ordered list of names, persisted
 
 local function LoadFavourites()
 	local ok, raw = pcall(readfile, FAV_FILE)
@@ -639,26 +639,38 @@ end
 
 local function SaveFavourites()
 	local lines = {}
-	for name in pairs(Favourites) do table.insert(lines, name) end
+	for name in pairs(Favourites) do
+		table.insert(lines, name)
+	end
 	pcall(writefile, FAV_FILE, table.concat(lines, "\n"))
 end
 
-local function LoadAutoExec()
-	local ok, raw = pcall(readfile, AUTOEXEC_FILE)
+local function LoadOrder()
+	local ok, raw = pcall(readfile, ORDER_FILE)
 	if not ok then return end
 	for line in raw:gmatch("[^\n]+") do
-		AutoExec[line:match("^%s*(.-)%s*$")] = true
+		table.insert(HubOrder, line:match("^%s*(.-)%s*$"))
 	end
 end
 
-local function SaveAutoExec()
+local function SaveOrder()
+	-- rebuild order from current LayoutOrder values
+	local sorted = {}
+	for _, entry in pairs(HubEntries) do
+		table.insert(sorted, entry)
+	end
+	table.sort(sorted, function(a, b)
+		return a.row.LayoutOrder < b.row.LayoutOrder
+	end)
 	local lines = {}
-	for name in pairs(AutoExec) do table.insert(lines, name) end
-	pcall(writefile, AUTOEXEC_FILE, table.concat(lines, "\n"))
+	for _, entry in ipairs(sorted) do
+		table.insert(lines, entry.name)
+	end
+	pcall(writefile, ORDER_FILE, table.concat(lines, "\n"))
 end
 
 LoadFavourites()
-LoadAutoExec()
+LoadOrder()
 
 -- ── Shared popup helper ───────────────────────────────────────────────────────
 -- Creates a modal popup with text fields and confirm/cancel buttons.
@@ -962,9 +974,26 @@ local function RefreshVisibility()
 end
 
 local function UpdateLayout()
+	-- apply saved order positions first, then assign fav/all section offsets
 	local favOrder, allOrder = 1, 501
-	for name, entry in pairs(HubEntries) do
-		if Favourites[name] then
+	local orderMap = {}
+	for i, n in ipairs(HubOrder) do
+		orderMap[n] = i
+	end
+
+	-- sort entries by saved order (unknown entries go to end)
+	local sorted = {}
+	for _, entry in pairs(HubEntries) do
+		table.insert(sorted, entry)
+	end
+	table.sort(sorted, function(a, b)
+		local oa = orderMap[a.name] or math.huge
+		local ob = orderMap[b.name] or math.huge
+		return oa < ob
+	end)
+
+	for _, entry in ipairs(sorted) do
+		if Favourites[entry.name] then
 			entry.row.LayoutOrder = favOrder
 			favOrder += 1
 		else
@@ -991,15 +1020,30 @@ local function AddHubEntry(name, content)
 	local rowCorner = Instance.new("UICorner", row)
 	rowCorner.CornerRadius = UDim.new(0, 8)
 
-	-- 5 buttons: exec, fav, import, autoexec, delete
-	local NAME_RIGHT_PAD = BTN_W * 5
+	-- 4 buttons: exec, fav, import, delete
+	local DRAG_W         = 22
+	local NAME_LEFT      = DRAG_W + 8
+	local NAME_RIGHT_PAD = BTN_W * 4 + 18
 
-	-- name label (left side)
+	-- ── drag handle ───────────────────────────────────────────────────────────
+	local dragHandle = Instance.new("TextButton", row)
+	dragHandle.Name = "DragHandle"
+	dragHandle.AnchorPoint = Vector2.new(0, 0.5)
+	dragHandle.Position = UDim2.new(0, 4, 0.5, 0)
+	dragHandle.Size = UDim2.new(0, DRAG_W, 0, DRAG_W)
+	dragHandle.BackgroundTransparency = 1
+	dragHandle.Text = "⋮⋮"
+	dragHandle.TextColor3 = Color3.fromRGB(110, 110, 110)
+	dragHandle.TextSize = 11
+	dragHandle.Font = Enum.Font.GothamBold
+	dragHandle.AutoButtonColor = false
+
+	-- name label (after handle)
 	local nameLabel = Instance.new("TextButton", row)
 	nameLabel.Name = "NameLabel"
 	nameLabel.AnchorPoint = Vector2.new(0, 0.5)
-	nameLabel.Position = UDim2.new(0, 10, 0.5, 0)
-	nameLabel.Size = UDim2.new(1, -NAME_RIGHT_PAD, 1, 0)
+	nameLabel.Position = UDim2.new(0, NAME_LEFT, 0.5, 0)
+	nameLabel.Size = UDim2.new(1, -(NAME_LEFT + NAME_RIGHT_PAD), 1, 0)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = name
 	nameLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
@@ -1012,8 +1056,8 @@ local function AddHubEntry(name, content)
 	local nameBox = Instance.new("TextBox", row)
 	nameBox.Name = "NameBox"
 	nameBox.AnchorPoint = Vector2.new(0, 0.5)
-	nameBox.Position = UDim2.new(0, 10, 0.5, 0)
-	nameBox.Size = UDim2.new(1, -NAME_RIGHT_PAD, 1, 0)
+	nameBox.Position = UDim2.new(0, NAME_LEFT, 0.5, 0)
+	nameBox.Size = UDim2.new(1, -(NAME_LEFT + NAME_RIGHT_PAD), 1, 0)
 	nameBox.BackgroundTransparency = 1
 	nameBox.Text = name
 	nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1023,11 +1067,11 @@ local function AddHubEntry(name, content)
 	nameBox.ClearTextOnFocus = false
 	nameBox.Visible = false
 
-	-- right-side buttons container (5 buttons × BTN_W + 4 gaps of 4)
+	-- right-side buttons container (4 buttons × BTN_W + 3 gaps of 4)
 	local btnRow = Instance.new("Frame", row)
 	btnRow.AnchorPoint = Vector2.new(1, 0.5)
 	btnRow.Position = UDim2.new(1, -6, 0.5, 0)
-	btnRow.Size = UDim2.new(0, BTN_W * 5 + 16, 0, BTN_W)
+	btnRow.Size = UDim2.new(0, BTN_W * 4 + 12, 0, BTN_W)
 	btnRow.BackgroundTransparency = 1
 
 	local btnLayout = Instance.new("UIListLayout", btnRow)
@@ -1036,31 +1080,18 @@ local function AddHubEntry(name, content)
 	btnLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	btnLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local execBtn      = MakeHubButton(btnRow, "▶",  Color3.fromRGB(0, 55, 0))
-	local favBtn       = MakeHubButton(btnRow, Favourites[name] and "★" or "☆", Color3.fromRGB(45, 35, 0))
-	local importBtn    = MakeHubButton(btnRow, "↓",  Color3.fromRGB(0, 25, 55))
-	local autoExecBtn  = MakeHubButton(btnRow, "⚡", Color3.fromRGB(40, 40, 0))
-	local deleteBtn    = MakeHubButton(btnRow, "🗑", Color3.fromRGB(55, 0, 0))
-	execBtn.LayoutOrder     = 5
-	favBtn.LayoutOrder      = 4
-	importBtn.LayoutOrder   = 3
-	autoExecBtn.LayoutOrder = 2
-	deleteBtn.LayoutOrder   = 1
+	local execBtn   = MakeHubButton(btnRow, "▶",  Color3.fromRGB(0, 55, 0))
+	local favBtn    = MakeHubButton(btnRow, Favourites[name] and "★" or "☆", Color3.fromRGB(45, 35, 0))
+	local importBtn = MakeHubButton(btnRow, "↓",  Color3.fromRGB(0, 25, 55))
+	local deleteBtn = MakeHubButton(btnRow, "🗑", Color3.fromRGB(55, 0, 0))
+	execBtn.LayoutOrder   = 4
+	favBtn.LayoutOrder    = 3
+	importBtn.LayoutOrder = 2
+	deleteBtn.LayoutOrder = 1
 
 	favBtn.TextColor3 = Favourites[name]
 		and Color3.fromRGB(255, 200, 0)
 		or  Color3.fromRGB(140, 140, 140)
-
-	-- auto-exec button visual state — uses name upvalue safely
-	local function RefreshAutoExecBtn()
-		if AutoExec[name] then
-			autoExecBtn.BackgroundColor3 = Color3.fromRGB(90, 80, 0)
-			autoExecBtn.TextColor3 = Color3.fromRGB(255, 230, 0)
-		else
-			autoExecBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 0)
-			autoExecBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
-		end
-	end
 
 	local entry = {
 		name      = name,
@@ -1069,26 +1100,88 @@ local function AddHubEntry(name, content)
 		nameBox   = nameBox,
 		favBtn    = favBtn,
 	}
+	HubEntries[name] = entry
 
-	RefreshAutoExecBtn()
+	-- ── drag-to-reorder ───────────────────────────────────────────────────────
+	local dragging       = false
+	local dragStartY     = 0
+	local dragStartOrder = 0
+
+	local function GetSortedSection()
+		local isFav = Favourites[entry.name]
+		local list  = {}
+		for _, e in pairs(HubEntries) do
+			local eFav = Favourites[e.name]
+			if (isFav and eFav) or (not isFav and not eFav) then
+				table.insert(list, e)
+			end
+		end
+		table.sort(list, function(a, b)
+			return a.row.LayoutOrder < b.row.LayoutOrder
+		end)
+		return list
+	end
+
+	dragHandle.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1
+			and input.UserInputType ~= Enum.UserInputType.Touch then return end
+		dragging = true
+		dragStartY    = input.Position.Y
+		dragStartOrder = row.LayoutOrder
+		dragHandle.TextColor3 = Color3.fromRGB(220, 220, 220)
+		row.BackgroundTransparency = 0.15
+	end)
+
+	dragHandle.InputEnded:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1
+			and input.UserInputType ~= Enum.UserInputType.Touch then return end
+		if not dragging then return end
+		dragging = false
+		dragHandle.TextColor3 = Color3.fromRGB(110, 110, 110)
+		row.BackgroundTransparency = 0.4
+		SaveOrder()
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging then return end
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement
+			and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+		local delta       = input.Position.Y - dragStartY
+		local steps       = math.floor(delta / (ITEM_H + 2) + 0.5)
+		local targetOrder = dragStartOrder + steps
+
+		local isFav      = Favourites[entry.name]
+		local sectionMin = isFav and 1 or 501
+		local sectionMax = isFav and 499 or 999
+		targetOrder = math.clamp(targetOrder, sectionMin, sectionMax)
+		if targetOrder == row.LayoutOrder then return end
+
+		-- swap with whichever entry currently occupies targetOrder
+		for _, other in ipairs(GetSortedSection()) do
+			if other ~= entry and other.row.LayoutOrder == targetOrder then
+				other.row.LayoutOrder = row.LayoutOrder
+				row.LayoutOrder = targetOrder
+				break
+			end
+		end
+	end)
 
 	-- ── delete (two clicks, auto-disarms after 2s) ────────────────────────────
 	local pendingDelete = false
 	deleteBtn.MouseButton1Click:Connect(function()
 		if pendingDelete then
+			-- second click — remove entry
 			if Favourites[entry.name] then
 				Favourites[entry.name] = nil
 				SaveFavourites()
-			end
-			if AutoExec[entry.name] then
-				AutoExec[entry.name] = nil
-				SaveAutoExec()
 			end
 			DeleteHubScript(entry.name)
 			HubEntries[entry.name] = nil
 			row:Destroy()
 			RefreshVisibility()
 		else
+			-- first click — arm, turn red
 			pendingDelete = true
 			deleteBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
 			deleteBtn.BackgroundTransparency = 0.2
@@ -1102,17 +1195,6 @@ local function AddHubEntry(name, content)
 		end
 	end)
 	HubEntries[name] = entry
-
-	-- ── auto-execute toggle ───────────────────────────────────────────────────
-	autoExecBtn.MouseButton1Click:Connect(function()
-		if AutoExec[entry.name] then
-			AutoExec[entry.name] = nil
-		else
-			AutoExec[entry.name] = true
-		end
-		SaveAutoExec()
-		RefreshAutoExecBtn()
-	end)
 
 	-- ── double-click to rename ────────────────────────────────────────────────
 	local lastClick = 0
@@ -1240,18 +1322,8 @@ local function BootHub()
 			AddHubEntry(fileName, LoadHubScript(fileName))
 		end
 	end
-	-- run auto-execute scripts after all entries are loaded
-	for name in pairs(AutoExec) do
-		if HubEntries[name] then
-			local src = LoadHubScript(name)
-			local fn, err = loadstring(src)
-			if fn then
-				pcall(fn)
-			else
-				warn("AutoExec Error [" .. name .. "]:", err)
-			end
-		end
-	end
+	-- apply saved order now that all entries exist
+	UpdateLayout()
 end
 
 BootHub()
