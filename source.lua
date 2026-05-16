@@ -461,15 +461,24 @@ function Dark.CreateLib()
 	-- Lib
 	-- ────────────────────────────────────────────────────────────────────────
 	local Lib = {}
+	local Tabs = {}
+	
+	function Lib:GetTab(tab, create)
+		local tab = Tabs[tab]
+		if create and tab == nil then
+			return Lib:AddTab(tab)
+		end
+		return tab
+	end
 
 	--[[
-		Lib:AddTab(image, labelText, mode)
-		  image     – Roblox asset ID (number) or nil
+		Lib:AddTab(labelText, mode)
 		  labelText – string label shown on the sidebar button
 		  mode      – nil / "scroll"  → default ScrollingFrame content area
 		              "full"          → raw Frame (you control layout entirely)
 	--]]
-	function Lib:AddTab(labelText, image, mode)
+	function Lib:AddTab(labelText, mode)
+		Tabs[labelText]
 		local indexnumber = tostring(#TabsScroll:GetChildren() - 1)
 		labelText = labelText or ("Tab_" .. indexnumber)
 
@@ -491,7 +500,7 @@ function Dark.CreateLib()
 		-- No TextStroke, no UIStroke – just plain text
 
 		local pad = Instance.new("UIPadding", TabButton)
-		pad.PaddingLeft = UDim.new(0, image and 36 or 8)
+		pad.PaddingLeft = UDim.new(0, 8)
 		pad.PaddingRight = UDim.new(0, 6)
 
 		local tabCorner = Instance.new("UICorner", TabButton)
@@ -502,16 +511,6 @@ function Dark.CreateLib()
 		stroke.Color = Color3.fromRGB(255, 255, 255)
 		stroke.Thickness = 1
 		stroke.Transparency = 0.2
-
-		local Icon = Instance.new("ImageLabel", TabButton)
-		Icon.Name = "Icon"
-		Icon.AnchorPoint = Vector2.new(0, 0.5)
-		Icon.Position = UDim2.new(0, 6, 0.5, 0)
-		Icon.Size = UDim2.new(0, 24, 0, 24)
-		Icon.BackgroundTransparency = 1
-		Icon.Image = image
-			and ("https://www.roblox.com/asset-thumbnail/image?assetId=" .. tostring(image) .. "&width=420&height=420&format=png")
-			or ""
 
 		-- ── Tab page ───────────────────────────────────────────────────────
 		--   mode == nil or "scroll"  →  ScrollingFrame (default)
