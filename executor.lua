@@ -1,7 +1,7 @@
 local Dark = loadstring(game:HttpGet("https://raw.githubusercontent.com/RedZenXYZ/DARK-LIBRARY/refs/heads/main/source.lua"))()
 
 local Lib = Dark.CreateLib()
-local executor = Lib:AddTab("EXECUTOR", nil, "full")
+local executor = Lib:AddTab("EXECUTOR", "full")
 
 -- ── Save directory ────────────────────────────────────────────────────────────
 local SAVE_DIR = "DarkExecutor"
@@ -821,7 +821,7 @@ local function MakePopup(parent, title, fields, onConfirm)
 end
 
 -- ── Hub tab frame ─────────────────────────────────────────────────────────────
-local hub = Lib:AddTab("HUB", nil, "full")
+local hub = Lib:AddTab("HUB", "full")
 hub.Frame.ClipsDescendants = true
 
 local HUB_PAD = 6
