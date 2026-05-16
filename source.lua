@@ -478,7 +478,6 @@ function Dark.CreateLib()
 		              "full"          → raw Frame (you control layout entirely)
 	--]]
 	function Lib:AddTab(labelText, mode)
-		Tabs[labelText]
 		local indexnumber = tostring(#TabsScroll:GetChildren() - 1)
 		labelText = labelText or ("Tab_" .. indexnumber)
 
@@ -566,6 +565,7 @@ function Dark.CreateLib()
 
 		-- ── Tab API object ─────────────────────────────────────────────────
 		local Tab = {Frame = TabPage, Content = ContentParent}
+		Tabs[labelText] = Tab
 		local componentOrder = 0
 		local function nextOrder()
 			componentOrder = componentOrder + 1
